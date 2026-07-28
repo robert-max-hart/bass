@@ -1,0 +1,331 @@
+/* DIV classes */
+div.divFlex { display:flex; margin-bottom:-20px; padding:0px; text-align: center; }
+div.divFlexTop { display:flex; margin-bottom: 8px; }
+div.divInnerFlex { margin-left: 8px; margin-right: 8px; }
+div.divChoiceItem { display:flex; margin:0px; }
+
+div.divTopButtons
+{
+    width:100%;
+    background-color: #222256;
+    display:none;
+    padding: 8px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+div.edit_panel
+{
+    padding: 4px;
+    text-align: center;
+}
+
+/* DIV id */
+div#divEdit
+{
+    display:none;
+    margin-top: 16px;
+}
+
+div#divEditLeft
+{
+    background-color: #333344;
+    margin: 4px;
+    text-align: left;
+    min-width:200px;
+    max-width:400px;
+}
+
+div#divEditCenter
+{
+    background-color: #666688;
+    min-width: 600px;
+}
+
+div#divEditRight
+{
+    background-color: #333344;
+    min-width:256px;
+}
+
+div#divList
+{
+    margin: auto;
+    text-align: left;
+    width: 100%;
+}
+
+div#divEventLabel
+{
+    display:flex;
+    text-align: center;
+    margin-bottom: 4px;
+    padding: 0px;
+}
+
+div#divName
+{
+    display:flex;
+    text-align:left;
+    padding-left:32px;
+}
+
+div#divTextChecks
+{
+    text-align:center;
+    width:100%;
+    margin-left:auto;
+    margin-right:auto;
+    margin-top:10px;
+}
+
+div#divDialog
+{
+    text-align: center;
+    margin-bottom: 0px;
+    padding: 0px;
+}
+
+div#divFadeChecks
+{
+    text-align:center;
+    width:100%;
+    margin-left:auto;
+    margin-right:auto;
+    margin-top:-8px;
+    margin-bottom: 4px;
+}
+
+div#divChoiceList
+{
+    margin-top: 4px;
+}
+
+h3.edit_header
+{
+    color: #EEEEEE;
+    background-color: #555566;
+    margin: 0px;
+    margin-bottom:4px;
+    text-align:center;
+}
+
+label
+{
+    font-size:16px;
+    color:#EEEEEE;
+}
+
+label.big_label
+{
+    font-size: 20px;
+    margin-top: 4px;
+}
+
+label.clear_label
+{
+    margin-left: 64px;
+    margin-right: 8px;
+}
+
+/* input classes */
+::placeholder
+{
+    color: #EEEEEE;
+    opacity: 0.45;
+}
+input[type="checkbox"]
+{
+    background-color: #AAAABB;
+    margin: 0px;
+    padding: 0px;
+    width:18px;
+    height:18px;
+    margin-bottom: 4px;
+    box-sizing: border-box;
+}
+
+input.big_check
+{
+    width:24px;
+    height:24px;
+}
+
+input.url
+{
+    color: #EEEEEE;
+    background-color: #666677;
+    font-size: 18px;
+    min-width: 256px;
+    border-radius: 2px;
+    margin-bottom: 4px;
+}
+
+input.short
+{
+    color:#EEEEEE;
+    background-color: #666677;
+    font-size: 18px;
+    min-width: 72px;
+    width: 72px;
+    border-radius: 2px;
+}
+
+input.choice_text
+{
+    color: #EEEEEE;
+    background-color: #666677;
+    font-size: 18px;
+    min-width: 160px;
+    width: 160px;
+    border-radius: 2px;
+}
+
+input.file_input
+{
+    font-size: 22px;
+    color: #EEEEEE;
+    background-color: #444488;
+    margin-right: 8px;
+    border-radius: 4px;
+}
+
+input#event_label
+{
+    color: #EEEEEE;
+    background-color: #888899;
+    font-size: 24px;
+    width: 100%;
+    text-align: center;
+    margin-right: 8px;
+    border-radius: 2px;
+}
+
+input#dialog_name
+{
+    font-size: 20px;
+    font-weight: 550;
+    color:#EEEEFF;
+    min-width: 250px;
+    margin-top: 4px;
+    margin-right: 10px;
+    padding:8px;
+    border:4px solid #EEEEEE;
+    border-radius: 12px;
+    background:#44AAEE;
+}
+
+p.choice_idx
+{
+    text-align: center;
+    font-size: 20px;
+    color:#EEEEFF;
+    margin: 0px;
+    padding: 0px;
+    border:2px solid #EEEEEE;
+    border-radius: 4px;
+    background-color: #666688;
+    width: 28px;
+    margin-left: 8px;
+    margin-right: 4px;
+}
+
+p.magic_space
+{
+    display:inline;
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+p#idx
+{
+    text-align: center;
+    font-size: 32px;
+    color:#EEEEFF;
+    margin: 0px;
+    padding: 0px;
+    border:2px solid #EEEEEE;
+    border-radius: 4px;
+    background-color: #666688;
+    width: 40px;
+    margin-left: 8px;
+    margin-right: 4px;
+}
+/* select classes */
+select
+{
+    color:#EEEEEE;
+    background-color:#666677;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 2px;
+    min-width: 150px;
+    width:100%;
+    margin-top: 2px;
+    margin-right:0px;
+}
+
+option
+{
+    color:#EEEEEE;
+    background-color:#666677;
+    font-size: 20px;
+    width: 100%;
+    min-width:160px;
+    padding-left: 6px;
+}
+
+textarea#dialog
+{
+    font-size: 24px;
+    color:#EEEEFF;
+    min-width: 585px;
+    margin-top: 8px;
+    padding:8px;
+    border:4px solid #EEEEEE;
+    border-radius: 16px;
+    background:#0033AA;
+}
+
+/* button classes */
+button.preview
+{
+    color: #EEEEEE;
+    font-size: 16px;
+    background-color:#444466;
+    border-radius: 2px;
+}
+
+button.event_manage
+{
+    color: #EEEEEE;
+    font-size: 16px;
+    font-weight: 600;
+    margin-right: 8px;
+    margin-left: 2px;
+    margin-top: 2px;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    background-color: #448833;
+    border-radius: 4px;
+    width: 100%;
+}
+
+button.file_button
+{
+    color :#EEEEEE;
+    font-size: 24px;
+    font-weight: 800;
+    margin-left: 4px;
+    margin-right: 4px;
+    border-radius: 6px;
+}
+
+button#save_file { background-color: #448833; }
+button#run_file { background-color: #334488; }
+
+
+button#delete_chapter { background-color: #884433; }
+button#remove_event   { background-color: #884433; }
