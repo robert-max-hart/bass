@@ -1,3 +1,3 @@
 #!/bin/sh
 
-google-chrome --disable-web-security --user-data-dir="/tmp/chrome_dev" ./bass.html
+google-chrome --disable-web-security --user-data-dir="/tmp/chrome_dev" ./index.html
