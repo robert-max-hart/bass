@@ -11,7 +11,7 @@ const LOGO_URL = "./res/logo_screen.png";
 const FIN_URL = "./res/fin_screen.png";
 
 var m_bEditMode = false;
-
+var s_play_sfx_button;
 var myGameArea =
 {
     canvas : document.createElement("canvas"),
@@ -84,6 +84,7 @@ function Update(timestamp)
 // --------------------------------
 function OnStart()
 {
+    s_play_sfx_button = document.getElementById("play_audio");
     EDIT.Populate();
 }
 

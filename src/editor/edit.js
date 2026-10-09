@@ -22,6 +22,7 @@ var EDIT = (function () {
     var s_next_chapter;
     var s_next_event;
     var s_wait_time;
+    var s_sound_effect;
     var s_background_scene;
     var s_background_clear;
     var s_foreground_scene;
@@ -151,7 +152,9 @@ var EDIT = (function () {
                 if (s_next_chapter != null)     { s_next_chapter.value = ev["chapter"] != null ? ev["chapter"] : ""; }
                 if (s_next_event != null)       { s_next_event.value = ev["next"] != null ? ev["next"] : ""; }
                 if (s_wait_time != null)        { s_wait_time.value = ev["wait"] != null ? ev["wait"] : ""; }
-
+                // sfx
+                if (s_sound_effect != null)     { s_sound_effect.value = ev["sound_effect"] != null ? ev["sound_effect"] : ""; }
+                // images
                 if (s_background_scene != null) { s_background_scene.value = ev["background"] != null ? ev["background"] : ""; }
                 if (s_background_clear != null) { s_background_clear.checked = ev["background_clear"] != null ? ev["background_clear"] : false; }
                 EDIT.PreviewBackground();
@@ -333,6 +336,7 @@ var EDIT = (function () {
         s_next_chapter = document.getElementById("chapter");
         s_next_event = document.getElementById("next");
         s_wait_time = document.getElementById("wait_time");
+        s_sound_effect = document.getElementById("sound_effect");
         s_background_scene = document.getElementById("background");
         s_background_clear = document.getElementById("clear_background");
         s_foreground_scene = document.getElementById("foreground");
@@ -352,6 +356,22 @@ var EDIT = (function () {
 
         s_chapter_list = document.getElementById("chapterList");
         s_event_list = document.getElementById("eventList");
+    };
+
+    // --------------------------------
+    // PreviewSound
+    //    Plays a preview of the sound effect for this scene
+    // --------------------------------
+    edit.PreviewSound = function()
+    {
+        if (s_sound_effect != null && s_sound_effect.value != "")
+        {
+            const audio_file = new Audio(s_sound_effect.value);
+            audio_file.preload = 'auto';
+            audio_file.loop = false;
+            audio_file.load();
+            audio_file.play();
+        }
     };
 
     // --------------------------------
@@ -495,6 +515,7 @@ var EDIT = (function () {
         if (s_next_chapter != null && s_next_chapter.value != "") { objSaveData.chapter = s_next_chapter.value; }
         if (s_next_event != null && s_next_event.value != "") { objSaveData.next = s_next_event.value; }
         if (s_wait_time != null && s_wait_time.value != "") { objSaveData.wait = s_wait_time.value; }
+        if (s_sound_effect != null && s_sound_effect.value != "") { objSaveData.sound_effect = s_sound_effect.value; }
         if (s_background_scene != null && s_background_scene.value != "") { objSaveData.background = s_background_scene.value; }
         if (s_background_clear != null && s_background_clear.checked) { objSaveData.background_clear = true; }
         if (s_foreground_scene != null && s_foreground_scene.value != "") { objSaveData.foreground = s_foreground_scene.value; }

@@ -124,7 +124,10 @@ var EVENTS = (function () {
 
             if ("dialog" in next_event)
             {
+                if ("sound_effect" in next_event) { DIALOG.SetSound(next_event["sound_effect"]); }
+                else                              { DIALOG.ClearSound(); }
                 DIALOG.SetText(next_event.dialog, next_event.name, next_event.italics, next_event.bold, next_event.choice);
+                DIALOG.PlaySound();
             }
             else
             {

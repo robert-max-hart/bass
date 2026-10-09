@@ -43,6 +43,9 @@ var DIALOG = (function () {
     var m_bCursorLoaded = false;
     var m_objFontHeightCache = {};
 
+    var m_bMuteSounds = false;
+    var m_sfx;
+
     var m_arrChoices = [];
     // main
     var d = {};
@@ -131,6 +134,54 @@ var DIALOG = (function () {
         m_bDialogDone = true;
 
         for (const choice_button of m_arrChoices) { if (choice_button != null) { choice_button.visible = false; } }
+    };
+
+    // --------------------------------
+    // SetSound
+    //     Sets the sound effect to play for this dialog box
+    // --------------------------------
+    d.SetSound = function(strSound)
+    {
+        DIALOG.ClearSound(); // clear out old sounds before setting a new sound
+        m_sfx = new Audio(strSound);
+        m_sfx.preload = 'auto';
+        m_sfx.loop = false;
+        m_sfx.load();
+        if (s_play_sfx_button != null) { s_play_sfx_button.disabled = false; }
+    };
+
+    // --------------------------------
+    // ClearSound
+    //     Clears out the sfx
+    // --------------------------------
+    d.ClearSound = function()
+    {
+        if (m_sfx != null) { m_sfx.pause(); } // stop any sounds first
+        m_sfx = null;
+        if (s_play_sfx_button != null) { s_play_sfx_button.disabled = true; }
+    };
+
+    // --------------------------------
+    // PlaySound
+    //     Plays a sound effect, if one exists, and the user has not set the mute on
+    // --------------------------------
+    d.PlaySound = function()
+    {
+        if (m_sfx != null && m_bMuteSounds == false)
+        {
+            m_sfx.pause(); // make sure we stop first
+            m_sfx.currentTime = 0;
+            m_sfx.play();
+        }
+    };
+
+    // --------------------------------
+    // ToggleMute
+    //     Toggles whether the sound is muted or not
+    // --------------------------------
+    d.ToggleMute = function(bChecked)
+    {
+        m_bMuteSounds = bChecked;
     };
 
     // --------------------------------

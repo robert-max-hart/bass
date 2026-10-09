@@ -25,7 +25,14 @@
     <br>
     <input type="text" class="big_input" id="load_file"/>
 </div>
-<div id="divMain" class="center_div"><img id="logo" name="logo" src="./res/logo_screen.png"><div id="divCanvas"></div></div>
+<div id="divMain" class="center_div"><img id="logo" name="logo" src="./res/logo_screen.png">
+    <div id="divCanvas"></div>
+    <div id="divSoundControl">
+        <button type="button" class="file_button" id="play_audio" onclick="DIALOG.PlaySound();" disabled>PLAY AUDIO</button>
+        <label id="mute_label" for="mute_sound" class="clear_label">Mute:</label>
+        <input type="checkbox" id="mute_sound" name="mute_sound" onchange="DIALOG.ToggleMute(this.checked);" />
+    </div>
+</div>
 <div class="divTopButtons" id="divFile">
     <div class="divFlexTop">
         <label class="big_label" for="story_name">Story Name: </label><input type="text" class="file_input" id="story_name" name="story_name" placeholder="<Story Name>" />
@@ -56,27 +63,41 @@
             </div>
         </div>
         <br><br>
-        <label for="background">Background</label>
-        <label for="clear_background" class="clear_label">Clear:</label>
-        <input type="checkbox" id="clear_background" name="clear_background" onchange="EDIT.FieldChanged();" />
-        <br>
-        <input type="text" class="url" id="background" name="background" placeholder="<background url>" onchange="EDIT.FieldChanged();"/>
-        <button type="button" class="preview" id="preview_background" name="preview_background" onclick="EDIT.PreviewBackground();">Preview</button>
-        <br><br>
-        <label for="foreground">Foreground</label>
-        <label for="clear_foreground" class="clear_label">Clear:</label>
-        <input type="checkbox" id="clear_foreground" name="clear_foreground" onchange="EDIT.FieldChanged();" />
-        <br>
-        <input type="text" class="url" id="foreground" name="foreground" placeholder="<foreground url>" onchange="EDIT.FieldChanged();"/>
-        <button type="button" class="preview" id="preview_foreground" name="preview_foreground" onclick="EDIT.PreviewForeground();">Preview</button><br>
-        <br><br>
-        <label for="effects">Effects</label>
-        <label for="clear_effects" class="clear_label">Clear:</label>
-        <input type="checkbox" id="clear_effects" name="clear_effects" onchange="EDIT.FieldChanged();" />
-        <br>
-        <input type="text" class="url" id="effects" name="effects" placeholder="<effects url>" onchange="EDIT.FieldChanged();"/>
-        <button type="button" class="preview" id="preview_effects" name="preview_effects" onclick="EDIT.PreviewEffects();">Preview</button>
-        <br><br>
+        <div id="divSound">
+            <h3 class="edit_header" id="sound_header" name="sound_header">SOUND</h3>
+            <label for="sound_effect">Sound</label>
+            <br>
+            <input type="text" class="url" id="sound_effect" name="sound_effect" placeholder="<sound effect url>" onchange="EDIT.FieldChanged();"/>
+            <button type="button" class="preview" id="preview_sound_effect" name="preview_sound_effect" onclick="EDIT.PreviewSound();">Preview</button>
+            <br>
+        </div>
+        <div id="divImages">
+            <h3 class="edit_header" id="image_header" name="image_header">IMAGES</h3>
+            <!-- Background element -->
+            <label for="background">Background</label>
+            <label for="clear_background" class="clear_label">Clear:</label>
+            <input type="checkbox" id="clear_background" name="clear_background" onchange="EDIT.FieldChanged();" />
+            <br>
+            <input type="text" class="url" id="background" name="background" placeholder="<background url>" onchange="EDIT.FieldChanged();"/>
+            <button type="button" class="preview" id="preview_background" name="preview_background" onclick="EDIT.PreviewBackground();">Preview</button>
+            <br>
+            <!-- Foreground element -->
+            <label for="foreground">Foreground</label>
+            <label for="clear_foreground" class="clear_label">Clear:</label>
+            <input type="checkbox" id="clear_foreground" name="clear_foreground" onchange="EDIT.FieldChanged();" />
+            <br>
+            <input type="text" class="url" id="foreground" name="foreground" placeholder="<foreground url>" onchange="EDIT.FieldChanged();"/>
+            <button type="button" class="preview" id="preview_foreground" name="preview_foreground" onclick="EDIT.PreviewForeground();">Preview</button>
+            <br>
+            <!-- Effects element -->
+            <label for="effects">Effects</label>
+            <label for="clear_effects" class="clear_label">Clear:</label>
+            <input type="checkbox" id="clear_effects" name="clear_effects" onchange="EDIT.FieldChanged();" />
+            <br>
+            <input type="text" class="url" id="effects" name="effects" placeholder="<effects url>" onchange="EDIT.FieldChanged();"/>
+            <button type="button" class="preview" id="preview_effects" name="preview_effects" onclick="EDIT.PreviewEffects();">Preview</button>
+            <br><br>
+        </div>
         <div id="divFadeChecks">
             <h3 class="edit_header" id="fade_header" name="fade_header">FADE</h3>
             <label class="big_label" for="fadeout">IN </label>
@@ -90,23 +111,23 @@
             <div id="divChoiceList">
                 <div id="divChoice_a" class="divChoiceItem">
                     <p class="choice_idx">A</p>
-                    <input type="text" id="choice_a" class="choice_text" placeholder="Choice A Text" />
-                    <input type="number" id="choice_a_target" class="short" placeholder=0 />
+                    <input type="text" id="choice_a" class="choice_text" placeholder="Choice A Text" onchange="EDIT.FieldChanged();"/>
+                    <input type="number" id="choice_a_target" class="short" placeholder=0 onchange="EDIT.FieldChanged();"/>
                 </div>
                 <div id="divChoice_b" class="divChoiceItem">
                     <p class="choice_idx">B</p>
-                    <input type="text" id="choice_b" class="choice_text" placeholder="Choice B Text" />
-                    <input type="number" id="choice_b_target" class="short" placeholder=0 />
+                    <input type="text" id="choice_b" class="choice_text" placeholder="Choice B Text" onchange="EDIT.FieldChanged();"/>
+                    <input type="number" id="choice_b_target" class="short" placeholder=0 onchange="EDIT.FieldChanged();"/>
                 </div>
                 <div id="divChoice_c" class="divChoiceItem">
                     <p class="choice_idx">C</p>
-                    <input type="text" id="choice_c" class="choice_text" placeholder="Choice C Text" />
-                    <input type="number" id="choice_c_target" class="short" placeholder=0 />
+                    <input type="text" id="choice_c" class="choice_text" placeholder="Choice C Text" onchange="EDIT.FieldChanged();"/>
+                    <input type="number" id="choice_c_target" class="short" placeholder=0 onchange="EDIT.FieldChanged();"/>
                 </div>
                 <div id="divChoice_d" class="divChoiceItem">
                     <p class="choice_idx">D</p>
-                    <input type="text" id="choice_d" class="choice_text" placeholder="Choice D Text" />
-                    <input type="number" id="choice_d_target" class="short" placeholder=0 />
+                    <input type="text" id="choice_d" class="choice_text" placeholder="Choice D Text" onchange="EDIT.FieldChanged();"/>
+                    <input type="number" id="choice_d_target" class="short" placeholder=0 onchange="EDIT.FieldChanged();"/>
                 </div>
             </div>
         </div>
