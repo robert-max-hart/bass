@@ -141,7 +141,7 @@ var RENDER = (function () {
 
     // --------------------------------
     // SetEffects
-    //     Sets the effects image when it is loaded (might be unused / not work)
+    //     Sets the effects image when it is loaded
     // @param - strURL : The URL of the image to be loaded
     // --------------------------------
     r.SetEffects = function(strURL)
@@ -199,6 +199,7 @@ var RENDER = (function () {
         {
             m_bEffectsLoaded = false;
             m_effects = null;
+            if (bRedraw == true) { RENDER.Render(); }
         }
         else
         {
@@ -226,7 +227,7 @@ var RENDER = (function () {
             else
             {
                 ctx.globalAlpha = m_fEffectsAlpha;
-                ctx.drawImage(m_effects, 0, 0);
+                ctx.drawImage(m_effects, 0, 0, GetCanvasWidth(), GetCanvasHeight());
                 ctx.globalAlpha = 1.0; // reset alpha
             }
         }

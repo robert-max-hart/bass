@@ -122,6 +122,9 @@ var EVENTS = (function () {
             if (next_event["foreground_clear"] == true) { RENDER.ClearForeground(); }
             else if ("foreground" in next_event)        { RENDER.SetForeground(next_event.foreground); }
 
+            if (next_event["effects_clear"] == true) { RENDER.ClearEffects(); }
+            else if ("effects" in next_event)        { RENDER.SetEffects(next_event.effects); }
+
             if ("dialog" in next_event)
             {
                 if ("sound_effect" in next_event) { DIALOG.SetSound(next_event["sound_effect"]); }
