@@ -192,8 +192,9 @@ var RENDER = (function () {
     // --------------------------------
     // ClearEffects
     //     Clears the effects image - fades out if in player, immediately if in editor
+    // @param - bRedraw : Boolean, if true then run the main render loop
     // --------------------------------
-    r.ClearEffects = function()
+    r.ClearEffects = function(bRedraw=true)
     {
         if (InEditMode())
         {
