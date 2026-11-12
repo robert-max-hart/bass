@@ -55,6 +55,7 @@ Validates a story file (exit code 1 on errors):
 - Links: `next`, `chapter`, `choice` targets exist; events with no `next` (the engine would replay them); unreachable events.
 - Text: dialog wrapping past the box, `\n` in dialog (the engine does not break on it), empty dialog.
 - Images: missing files; backgrounds not 1170×540 (stretched); foregrounds bigger than the canvas (clipped).
+- Voice: missing voice clips (`voice_line`), and voice lines on events that have no dialog.
 - Engine support: warns if the story uses `effects` and the player doesn't read them yet.
 
 ## placeholders
@@ -105,3 +106,36 @@ python3 tools/story_tools.py relink stories/optometrist_p1.json -v
 ```
 
 Typical loop: generate into `raw/`, then `finalize`, then `relink`, then reload the game.
+
+---
+
+# Voice lines: tools/voice_lines.py and tools/voicegen
+
+Every dialog event can have a voice clip, which the player plays when the event appears (`voice_line` in
+the event). The generator, **voicegen** (`tools/voicegen/`), is a standalone package that doesn't depend on
+bass; `voice_lines.py` connects it to bass stories. The format and every direction are explained in
+[VOICE_SCRIPT.md](VOICE_SCRIPT.md). Design notes and decisions are in [VOICE_PLAN.md](VOICE_PLAN.md).
+
+Setup: a Python venv with Kokoro (`~/venv/kokoro`), then `pip install -e tools/voicegen`. Voice packs
+(`.pt`) live in `stories/voices/`.
+
+```
+PY="$HOME/venv/kokoro/bin/python -I"
+$PY tools/voice_lines.py sync  stories/optometrist_p1.json            # story -> stories/optometrist_p1/voice_script.txt
+#   ...edit voice_script.txt: {directions} after the speaker, [word](marks) in the text...
+voicegen check   stories/optometrist_p1/voice_script.txt
+voicegen preview --script stories/optometrist_p1/voice_script.txt --line c1.e174 -o x.ogg
+$PY tools/voice_lines.py build stories/optometrist_p1.json --dry-run  # what would render, how long
+$PY tools/voice_lines.py build stories/optometrist_p1.json            # render (cached) + link voice_line
+```
+
+- `sync` is safe to repeat. Lines are matched by text, so renumbered events keep their directions. Edited
+  lines are flagged `!changed`, and directions for removed lines go to an `== Orphaned ==` section.
+- `build` only renders what changed. It stores clips in `stories/<story>/voice/`, keeps a `.bak` of the
+  story, and refuses to run if the story changed since the last `sync`. `--only "c1.e1*"` renders some lines;
+  `--prune` deletes unused clips. Ctrl-C is safe.
+- Chapter 2: `build_story.py` rewrites the story and drops `voice_line`, so run `sync` and `build` again
+  afterwards (unchanged clips are reused).
+- `check` reports missing voice clips, and `voice_line` on events that have no dialog.
+- In the player, **PLAY AUDIO** replays the sound effect and **PLAY VOICE** replays the voice line; each
+  is enabled only when the event has that track. **Mute voice** silences the voice only. In the editor, the **Voice** field (under SOUND) has a Preview button.

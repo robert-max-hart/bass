@@ -1,6 +1,6 @@
 # Voice lines: plan
 
-Status (2026-11-12): **steps 1–3 done (voicegen complete); step 4 (player/editor/check) next**. The script format as built is documented in `tools/VOICE_SCRIPT.md` (it supersedes the sketch in section 4); the standalone/bass split is in section 0. Tone-control research is done and approved. The reference
+Status (2026-11-12): **steps 1–4 done; step 5 (direct + build chapter 1) next**. The script format as built is documented in `tools/VOICE_SCRIPT.md` (it supersedes the sketch in section 4); the standalone/bass split is in section 0. Tone-control research is done and approved. The reference
 engine is `tools/voice_prototype.py`. Reference clips are in `stories/voices/reference/`; rebuild them with
 `~/venv/kokoro/bin/python -I tools/voice_prototype.py stories/voices/reference`.
 
@@ -175,12 +175,12 @@ directions.
    - `--dry-run` (counts per speaker, lines with spoken-text overrides, unmatched directions, time
      estimate of roughly 0.7× real time on CPU plus 16 s model load). Also `--prune` and `--chapter`/`--events`.
    - Save progress on Ctrl-C.
-4. **Player, editor, check**
+4. **Done 2026-11-12.** **Player, editor, check** (tested in headless Chrome with playback stubbed; real playback still to be heard)
    - `dialog.js`:
      - a voice `Audio` separate from the sound effect;
      - stop the voice when a new event loads, including non-dialog events;
      - a "Mute voice" checkbox in `index.html`;
-     - the Play Audio button replays sound effect and voice.
+     - separate replay buttons: Play Audio (sound effect) and Play Voice (voice line).
    - `event_manager.js`: set/clear the voice in `ParseNextEvent`.
    - `edit.js`:
      - a voice field with Preview;

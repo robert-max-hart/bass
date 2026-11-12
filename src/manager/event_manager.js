@@ -129,11 +129,15 @@ var EVENTS = (function () {
             {
                 if ("sound_effect" in next_event) { DIALOG.SetSound(next_event["sound_effect"]); }
                 else                              { DIALOG.ClearSound(); }
+                if ("voice_line" in next_event)   { DIALOG.SetVoice(next_event["voice_line"]); }
+                else                              { DIALOG.ClearVoice(); }
                 DIALOG.SetText(next_event.dialog, next_event.name, next_event.italics, next_event.bold, next_event.choice);
                 DIALOG.PlaySound();
+                DIALOG.PlayVoice();
             }
             else
             {
+                DIALOG.ClearVoice(); // a voice line never carries over into a non-dialog event
                 DIALOG.ClearText();
                 EVENTS.AutoAdvance(next_event.wait);
             }

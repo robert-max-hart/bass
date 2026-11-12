@@ -23,6 +23,8 @@ var EDIT = (function () {
     var s_next_event;
     var s_wait_time;
     var s_sound_effect;
+    var s_voice_line;
+    var m_previewAudio = null;
     var s_background_scene;
     var s_background_clear;
     var s_foreground_scene;
@@ -154,6 +156,7 @@ var EDIT = (function () {
                 if (s_wait_time != null)        { s_wait_time.value = ev["wait"] != null ? ev["wait"] : ""; }
                 // sfx
                 if (s_sound_effect != null)     { s_sound_effect.value = ev["sound_effect"] != null ? ev["sound_effect"] : ""; }
+                if (s_voice_line != null)       { s_voice_line.value = ev["voice_line"] != null ? ev["voice_line"] : ""; }
                 // images
                 if (s_background_scene != null) { s_background_scene.value = ev["background"] != null ? ev["background"] : ""; }
                 if (s_background_clear != null) { s_background_clear.checked = ev["background_clear"] != null ? ev["background_clear"] : false; }
@@ -337,6 +340,7 @@ var EDIT = (function () {
         s_next_event = document.getElementById("next");
         s_wait_time = document.getElementById("wait_time");
         s_sound_effect = document.getElementById("sound_effect");
+        s_voice_line = document.getElementById("voice_line");
         s_background_scene = document.getElementById("background");
         s_background_clear = document.getElementById("clear_background");
         s_foreground_scene = document.getElementById("foreground");
@@ -364,14 +368,32 @@ var EDIT = (function () {
     // --------------------------------
     edit.PreviewSound = function()
     {
-        if (s_sound_effect != null && s_sound_effect.value != "")
-        {
-            const audio_file = new Audio(s_sound_effect.value);
-            audio_file.preload = 'auto';
-            audio_file.loop = false;
-            audio_file.load();
-            audio_file.play();
-        }
+        if (s_sound_effect != null) { EDIT.PreviewAudio(s_sound_effect.value); }
+    };
+
+    // --------------------------------
+    // PreviewVoice
+    //    Plays a preview of the voice line for this scene
+    // --------------------------------
+    edit.PreviewVoice = function()
+    {
+        if (s_voice_line != null) { EDIT.PreviewAudio(s_voice_line.value); }
+    };
+
+    // --------------------------------
+    // PreviewAudio
+    //    Plays an audio file, stopping the previous preview first
+    // --------------------------------
+    edit.PreviewAudio = function(strUrl)
+    {
+        if (m_previewAudio != null) { m_previewAudio.pause(); m_previewAudio = null; }
+        if (strUrl == null || strUrl == "") { return; }
+        m_previewAudio = new Audio(strUrl);
+        m_previewAudio.preload = 'auto';
+        m_previewAudio.loop = false;
+        m_previewAudio.load();
+        let promise = m_previewAudio.play();
+        if (promise != null) { promise.catch(function(err) { console.log("Preview did not play: " + strUrl + " (" + err.name + ")"); }); }
     };
 
     // --------------------------------
@@ -502,9 +524,17 @@ var EDIT = (function () {
     // SaveEvent
     //     Saves the current event data to the events list
     // --------------------------------
+    // Fields the form manages. Any other field on the event (added by tools or a newer version) is kept as is.
+    const FORM_FIELDS = ["label", "name", "italics", "bold", "dialog", "chapter", "next", "wait", "sound_effect", "voice_line",
+                         "background", "background_clear", "foreground", "foreground_clear", "effects", "effects_clear",
+                         "fadein", "fadeout", "choice"];
+
     edit.SaveEvent = function()
     {
-        let objSaveData = {};
+        // start from the existing event so fields the form doesn't show survive the save
+        let objExisting = (m_iSelectedEventIdx >= 0) ? EVENTS.GetEventByID(m_iSelectedEventIdx) : null;
+        let objSaveData = (objExisting != null) ? Object.assign({}, objExisting) : {};
+        for (const strField of FORM_FIELDS) { delete objSaveData[strField]; }
 
         if (s_label_edit != null && s_label_edit.value != "") { objSaveData.label = s_label_edit.value; }
         if (s_name_edit != null && s_name_edit.value != "") { objSaveData.name = s_name_edit.value; }
@@ -516,6 +546,7 @@ var EDIT = (function () {
         if (s_next_event != null && s_next_event.value != "") { objSaveData.next = s_next_event.value; }
         if (s_wait_time != null && s_wait_time.value != "") { objSaveData.wait = s_wait_time.value; }
         if (s_sound_effect != null && s_sound_effect.value != "") { objSaveData.sound_effect = s_sound_effect.value; }
+        if (s_voice_line != null && s_voice_line.value != "") { objSaveData.voice_line = s_voice_line.value; }
         if (s_background_scene != null && s_background_scene.value != "") { objSaveData.background = s_background_scene.value; }
         if (s_background_clear != null && s_background_clear.checked) { objSaveData.background_clear = true; }
         if (s_foreground_scene != null && s_foreground_scene.value != "") { objSaveData.foreground = s_foreground_scene.value; }

@@ -45,6 +45,8 @@ var DIALOG = (function () {
 
     var m_bMuteSounds = false;
     var m_sfx;
+    var m_bMuteVoice = false;
+    var m_voice;
 
     var m_arrChoices = [];
     // main
@@ -137,17 +139,49 @@ var DIALOG = (function () {
     };
 
     // --------------------------------
+    // MakeAudio
+    //     Creates a preloaded, non-looping Audio object
+    // --------------------------------
+    function MakeAudio(strUrl)
+    {
+        let audio = new Audio(strUrl);
+        audio.preload = 'auto';
+        audio.loop = false;
+        audio.load();
+        return audio;
+    }
+
+    // --------------------------------
+    // Restart
+    //     Plays an Audio object from the start; a missing file or a blocked autoplay is not an error
+    // --------------------------------
+    function Restart(audio)
+    {
+        audio.pause();
+        audio.currentTime = 0;
+        let promise = audio.play();
+        if (promise != null) { promise.catch(function(err) { console.log("Audio did not play: " + audio.src + " (" + err.name + ")"); }); }
+    }
+
+    // --------------------------------
+    // UpdateAudioButtons
+    //     Each replay button is available when this dialog has that track (sound effect / voice line)
+    // --------------------------------
+    function UpdateAudioButtons()
+    {
+        if (s_play_sfx_button != null)   { s_play_sfx_button.disabled = (m_sfx == null); }
+        if (s_play_voice_button != null) { s_play_voice_button.disabled = (m_voice == null); }
+    }
+
+    // --------------------------------
     // SetSound
     //     Sets the sound effect to play for this dialog box
     // --------------------------------
     d.SetSound = function(strSound)
     {
         DIALOG.ClearSound(); // clear out old sounds before setting a new sound
-        m_sfx = new Audio(strSound);
-        m_sfx.preload = 'auto';
-        m_sfx.loop = false;
-        m_sfx.load();
-        if (s_play_sfx_button != null) { s_play_sfx_button.disabled = false; }
+        m_sfx = MakeAudio(strSound);
+        UpdateAudioButtons();
     };
 
     // --------------------------------
@@ -158,7 +192,7 @@ var DIALOG = (function () {
     {
         if (m_sfx != null) { m_sfx.pause(); } // stop any sounds first
         m_sfx = null;
-        if (s_play_sfx_button != null) { s_play_sfx_button.disabled = true; }
+        UpdateAudioButtons();
     };
 
     // --------------------------------
@@ -167,21 +201,58 @@ var DIALOG = (function () {
     // --------------------------------
     d.PlaySound = function()
     {
-        if (m_sfx != null && m_bMuteSounds == false)
-        {
-            m_sfx.pause(); // make sure we stop first
-            m_sfx.currentTime = 0;
-            m_sfx.play();
-        }
+        if (m_sfx != null && m_bMuteSounds == false) { Restart(m_sfx); }
+    };
+
+    // --------------------------------
+    // SetVoice
+    //     Sets the voice line for this dialog box (kept separate from the sound effect so both can play)
+    // --------------------------------
+    d.SetVoice = function(strVoice)
+    {
+        DIALOG.ClearVoice();
+        m_voice = MakeAudio(strVoice);
+        UpdateAudioButtons();
+    };
+
+    // --------------------------------
+    // ClearVoice
+    //     Stops and clears the voice line
+    // --------------------------------
+    d.ClearVoice = function()
+    {
+        if (m_voice != null) { m_voice.pause(); }
+        m_voice = null;
+        UpdateAudioButtons();
+    };
+
+    // --------------------------------
+    // PlayVoice
+    //     Plays the voice line, if one exists, and the user has not muted voices
+    // --------------------------------
+    d.PlayVoice = function()
+    {
+        if (m_voice != null && m_bMuteVoice == false) { Restart(m_voice); }
     };
 
     // --------------------------------
     // ToggleMute
-    //     Toggles whether the sound is muted or not
+    //     Toggles whether the sound effects are muted or not
     // --------------------------------
     d.ToggleMute = function(bChecked)
     {
         m_bMuteSounds = bChecked;
+        if (bChecked && m_sfx != null) { m_sfx.pause(); }
+    };
+
+    // --------------------------------
+    // ToggleMuteVoice
+    //     Toggles whether the voice lines are muted or not
+    // --------------------------------
+    d.ToggleMuteVoice = function(bChecked)
+    {
+        m_bMuteVoice = bChecked;
+        if (bChecked && m_voice != null) { m_voice.pause(); }
     };
 
     // --------------------------------

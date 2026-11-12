@@ -38,7 +38,7 @@ ITALIC_THRESHOLD = 0.6          # fraction of italic letters that makes an event
 KNOWN_EVENT_KEYS = {
     "label", "name", "dialog", "italics", "bold", "next", "chapter", "wait", "sound_effect",
     "background", "background_clear", "foreground", "foreground_clear", "effects", "effects_clear",
-    "fadein", "fadeout", "choice",
+    "fadein", "fadeout", "choice", "voice_line",
 }
 IMAGE_KEYS = ("background", "foreground", "effects")
 
@@ -1075,6 +1075,21 @@ def cmd_check(a):
                 warns.append(f"{where} foreground {path} is {w}x{h}, larger than the {CANVAS_W}x{CANVAS_H} canvas (edges are clipped)")
             if field == "effects" and (w, h) != (CANVAS_W, CANVAS_H):
                 warns.append(f"{where} effects {path} is {w}x{h}; effects are meant to be {CANVAS_W}x{CANVAS_H}")
+    # voice lines (made by tools/voice_lines.py build)
+    missing_voice, voiceless = [], []
+    for ck, ch in (story.get("chapters") or {}).items():
+        for ek, ev in (ch.get("events") or {}).items():
+            if not isinstance(ev, dict) or not ev.get("voice_line"):
+                continue
+            if not ev.get("dialog"):
+                voiceless.append(f"[{ck}:{ek}]")
+            if not is_remote(ev["voice_line"]) and not resolve(root, ev["voice_line"]).exists():
+                missing_voice.append(f"[{ck}:{ek}]")
+    if missing_voice:
+        warns.append(f"{len(missing_voice)} voice clip(s) missing (run `tools/voice_lines.py build`): "
+                     + ", ".join(missing_voice[:8]) + (" …" if len(missing_voice) > 8 else ""))
+    if voiceless:
+        warns.append(f"voice_line on event(s) without dialog (never played): " + ", ".join(voiceless[:8]))
     if missing:
         warns.append(f"{len(missing)} referenced file(s) missing (run `placeholders` to create stand-ins): "
                      + ", ".join(sorted(missing)[:6]) + (" …" if len(missing) > 6 else ""))

@@ -29,8 +29,11 @@
     <div id="divCanvas"></div>
     <div id="divSoundControl">
         <button type="button" class="file_button" id="play_audio" onclick="DIALOG.PlaySound();" disabled>PLAY AUDIO</button>
-        <label id="mute_label" for="mute_sound" class="clear_label">Mute:</label>
+        <button type="button" class="file_button" id="play_voice" onclick="DIALOG.PlayVoice();" disabled>PLAY VOICE</button>
+        <label id="mute_label" for="mute_sound" class="clear_label">Mute sounds:</label>
         <input type="checkbox" id="mute_sound" name="mute_sound" onchange="DIALOG.ToggleMute(this.checked);" />
+        <label id="mute_voice_label" for="mute_voice" class="clear_label">Mute voice:</label>
+        <input type="checkbox" id="mute_voice" name="mute_voice" onchange="DIALOG.ToggleMuteVoice(this.checked);" />
     </div>
 </div>
 <div class="divTopButtons" id="divFile">
@@ -69,6 +72,11 @@
             <br>
             <input type="text" class="url" id="sound_effect" name="sound_effect" placeholder="<sound effect url>" onchange="EDIT.FieldChanged();"/>
             <button type="button" class="preview" id="preview_sound_effect" name="preview_sound_effect" onclick="EDIT.PreviewSound();">Preview</button>
+            <br>
+            <label for="voice_line">Voice</label>
+            <br>
+            <input type="text" class="url" id="voice_line" name="voice_line" placeholder="<voice line url>" onchange="EDIT.FieldChanged();"/>
+            <button type="button" class="preview" id="preview_voice_line" name="preview_voice_line" onclick="EDIT.PreviewVoice();">Preview</button>
             <br>
         </div>
         <div id="divImages">
