@@ -33,7 +33,7 @@ Put a line made only of `[...]` groups in the manuscript. Images are picked up b
 
 | Directive | Effect |
 |---|---|
-| `[bg: scene_3.png]` | Set the background for the next event |
+| `[bg: bg_julia_snaps_out.png]` | Set the background for the next event |
 | `[fg: tank.png]` | Set the foreground (character) |
 | `[fx: rain.png]` | Set the effects overlay (needs player support, see `docs/effects_proposal.md`) |
 | `[bg: clear]`, `[fg: clear]`, `[fx: clear]` | Clear that layer |
@@ -59,4 +59,49 @@ Validates a story file (exit code 1 on errors):
 
 ## placeholders
 
-Creates a stand-in image for every local image the story references that doesn't exist yet (it never touches existing files). Each card is labelled with its file name, what kind of layer it is, where it's first used and a line of dialog from that scene. Backgrounds are opaque; foregrounds and effects are transparent, 1170×540. `--descriptions file.json` (`{"scene_9.png": "Close-up of …"}`) adds your own text to the cards, and `--list out.md` writes a Markdown index. Run it after `convert` once the `[bg: …]` names are in place.
+Creates a stand-in image for every local image the story references that doesn't exist yet (it never touches existing files). Each card is labelled with its file name, what kind of layer it is, where it's first used and a line of dialog from that scene. Backgrounds are opaque; foregrounds and effects are transparent, 1170×540. `--descriptions file.json` (`{"bg_penlight_blink.png": "Close-up of …"}`) adds your own text to the cards, and `--list out.md` writes a Markdown index. Run it after `convert` once the `[bg: …]` names are in place.
+
+## finalize
+
+Turns raw image-generator output into game-ready art. Put generations in `stories/<name>/raw/` named after the image they're for (`bg_exam_room_intake.jpeg`, `fg_black_glasses.png`, …); any size, any format. Rejected attempts go in `raw/_rejects/` (anything starting with `_` is ignored).
+
+```
+python3 tools/story_tools.py finalize stories/optometrist_p1.json            # only what changed
+python3 tools/story_tools.py finalize stories/optometrist_p1.json --only bg_exam_room_intake --show-regions
+```
+
+For each raw image it:
+- **Crops to 1170×540** (cover-crop to the 2.17:1 aspect, then a high-quality downscale) and reports any crop that removes more than 5 %.
+- **Picks the format from how the story uses it:** backgrounds become `.jpg` (quality 90, full-colour chroma, about 5× smaller than PNG); foregrounds and effects become `.png` with alpha. Images the story doesn't use yet go by prefix (`fg_`, `fx_`, else background).
+- **Removes the backdrop** of foregrounds and effects. It samples the real backdrop colour from the border, because generators never give exact #00FF00 and JPEG adds noise. Green or magenta backdrops are unmixed, so glass and soft edges keep partial alpha, with no green fringe. Effects on **black** become glow-style alpha: brightness turns into opacity. Generate light effects on black; glows on green key poorly.
+- Writes `art/<name>.jpg|png` and remembers what it built in `art/.finalize.json`. It rebuilds only when the raw file or its settings change; use `--force` to rebuild everything.
+
+Optional per-image settings go in `raw/finalize.json`; coordinates are canvas pixels (1170×540):
+
+```json
+{
+  "bg_waiting_room_julia": {"anchor": [0.5, 0.0]},
+  "bg_exam_room_intake": {"skin": [{"ellipse": [503, 270, 55, 60], "lightness": -0.15, "saturation": 0.15}]},
+  "fx_display_shimmer": {"opacity": 0.6},
+  "fg_julia_display_case": {"key": "green"}
+}
+```
+
+| Setting | Effect |
+|---|---|
+| `anchor: [x, y]` | Which part survives the crop: 0 keeps the left/top edge, 1 the right/bottom (default centre) |
+| `zoom` | Magnify by this factor (e.g. 1.3): crops a window 1/zoom the size of the normal crop, then scales it up. Use with `anchor` to choose which part stays in view. Warns if it has to upscale. `skin` coordinates are in the zoomed picture. |
+| `kind` | Force `background` / `foreground` / `effects` |
+| `key` | Force `green` / `magenta` / `black` / `none` instead of auto-detecting |
+| `opacity` | Multiply an overlay's alpha (e.g. 0.35 for a subtle effect) |
+| `skin` | List of skin-tone fixes. Inside a feathered `ellipse` `[cx, cy, rx, ry]`, only skin-coloured pixels (warm hue, medium saturation) are changed by `lightness`, `saturation` (fractions, e.g. -0.15) and `hue` (degrees). Hoodies, eye whites, hair and upholstery are left alone. `--show-regions` writes `art/_preview/` copies with the ellipses drawn, to check placement. |
+
+## relink
+
+Points every image in a story at the best version available: `art/`, then `originals/` (old art kept until it's replaced), then `placeholders/`. Images are matched by file name without extension, so `bg_exam_room_intake.png` in the story picks up `art/bg_exam_room_intake.jpg`. It prints how many images come from each folder; `-v` lists them and `--dry-run` changes nothing. The previous story file is saved as `<story>.json.bak`.
+
+```
+python3 tools/story_tools.py relink stories/optometrist_p1.json -v
+```
+
+Typical loop: generate into `raw/`, then `finalize`, then `relink`, then reload the game.

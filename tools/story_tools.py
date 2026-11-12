@@ -5,6 +5,8 @@ story_tools.py - helpers for writing bass story files.
   convert       Draft a story .json from a manuscript (.odt, .txt or .md)
   check         Validate a story .json (links, line length, images, engine support)
   placeholders  Make placeholder images for every image a story references but that doesn't exist yet
+  finalize      Turn raw generator output (stories/<name>/raw/) into game-ready art (stories/<name>/art/)
+  relink        Point the story at the best image available: art/, then originals/, then placeholders/
 
 Run `story_tools.py <command> -h` for options. Only the standard library is required;
 Pillow (PIL) is optional and enables accurate text measuring, image-size checks and placeholders.
@@ -1181,6 +1183,324 @@ def cmd_placeholders(a):
 
 
 # =====================================================================
+# Art pipeline: finalize (raw/ -> art/) and relink (story -> best image)
+# =====================================================================
+# Story art folder layout (stories/<name>/):
+#   raw/           generator output, any size or format; raw/_rejects/ is ignored
+#   raw/finalize.json  optional per-image settings (see cmd_finalize)
+#   art/           game-ready files written by `finalize` (never edit by hand)
+#   originals/     old art, used until a replacement exists in art/
+#   placeholders/  stand-in cards, used until either exists
+RAW_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+LINK_ORDER = ("art", "originals", "placeholders", ".")
+
+
+def story_image_dir(story_path, image_dir=None):
+    return Path(image_dir) if image_dir else REPO_ROOT / "stories" / Path(story_path).stem
+
+
+def image_kinds(story):
+    """stem -> 'background' | 'foreground' | 'effects', from how the story uses each image."""
+    kinds = {}
+    for path, field, *_ in image_refs(story):
+        if field != "sound_effect" and not is_remote(path):
+            kinds.setdefault(Path(path).stem, "background" if field == "title_screen" else field)
+    return kinds
+
+
+def guess_kind(stem):
+    return "foreground" if stem.startswith("fg_") else "effects" if stem.startswith("fx_") else "background"
+
+
+def crop_to_canvas(im, anchor=(0.5, 0.5), zoom=1.0):
+    """Cover-crop to the canvas aspect ratio (anchor 0 keeps the left/top edge, 1 the right/bottom), then resize.
+    zoom > 1 crops a smaller window (1/zoom of the cover-crop size) first, so the picture is magnified; the anchor
+    then picks which part of the frame that window sits over."""
+    w, h = im.size
+    target = CANVAS_W / CANVAS_H
+    if w / h > target:
+        cw, ch = round(h * target), h
+    else:
+        cw, ch = w, round(w / target)
+    if zoom > 1:
+        cw, ch = round(cw / zoom), round(ch / zoom)
+    x0 = round((w - cw) * min(max(anchor[0], 0), 1))
+    y0 = round((h - ch) * min(max(anchor[1], 0), 1))
+    lost = 1 - (cw * ch) / (w * h)
+    return im.crop((x0, y0, x0 + cw, y0 + ch)).resize((CANVAS_W, CANVAS_H), Image.LANCZOS), lost
+
+
+def border_color(im):
+    """Median colour of the image's outer 4-px frame (the generator's backdrop)."""
+    w, h = im.size
+    px = im.load()
+    pts = [px[x, y] for x in range(0, w, 3) for y in (0, 2, h - 3, h - 1)]
+    pts += [px[x, y] for y in range(0, h, 3) for x in (0, 2, w - 3, w - 1)]
+    return tuple(sorted(p[i] for p in pts)[len(pts) // 2] for i in range(3))
+
+
+def detect_key(im, kind):
+    r, g, b = border_color(im)
+    if g - max(r, b) > 80:
+        return "green", (r, g, b)
+    if min(r, b) - g > 80:
+        return "magenta", (r, g, b)
+    if max(r, g, b) < 40 and kind == "effects":
+        return "black", (r, g, b)
+    return "none", (r, g, b)
+
+
+def chroma_key(im, key_rgb, channel, full=0.85):
+    """Unmix a green or magenta backdrop. `key_rgb` is the sampled backdrop colour (generators never give pure
+    #00FF00, and JPEG adds noise), so keyness is measured relative to it; >= `full` of it counts as fully
+    transparent. Edges get partial alpha, the backdrop colour is removed from them, and leftover spill is clamped."""
+    kr, kg, kb = key_rgb
+    if channel == "green":
+        kk = kg - max(kr, kb)
+        keyness = lambda r, g, b: g - max(r, b)
+    else:
+        kk = min(kr, kb) - kg
+        keyness = lambda r, g, b: min(r, b) - g
+    out = []
+    for r, g, b in im.convert("RGB").getdata():
+        m = min(max(keyness(r, g, b) / (kk * full), 0.0), 1.0)
+        if m >= 1.0:
+            out.append((0, 0, 0, 0))
+            continue
+        a = 1.0 - m
+        fr, fg, fb = ((r - m * kr) / a, (g - m * kg) / a, (b - m * kb) / a)
+        if channel == "green":
+            fg = min(fg, max(fr, fb))           # despill
+        else:
+            spill = min(fr, fb) - fg            # magenta tint = red and blue both above green
+            if spill > 0:
+                fr, fb = fr - spill, fb - spill
+        out.append((max(0, min(255, round(fr))), max(0, min(255, round(fg))), max(0, min(255, round(fb))),
+                    round(a * 255)))
+    res = Image.new("RGBA", im.size)
+    res.putdata(out)
+    return res
+
+
+def luma_key(im, black_rgb=(0, 0, 0)):
+    """Light-on-black effects art -> alpha. Brightness becomes opacity and the colour is un-premultiplied, so the
+    result composited normally over anything looks like the glow was added on top. Good for glows, sparkles, rays."""
+    floor = max(black_rgb)
+    out = []
+    for px in im.convert("RGB").getdata():
+        r, g, b = (max(0, c - floor) * 255 / (255 - floor) for c in px)
+        a = max(r, g, b)
+        if a < 1:
+            out.append((0, 0, 0, 0))
+        else:
+            out.append((round(r * 255 / a), round(g * 255 / a), round(b * 255 / a), round(a)))
+    res = Image.new("RGBA", im.size)
+    res.putdata(out)
+    return res
+
+
+def adjust_skin(im, region):
+    """Shift skin tones inside a feathered ellipse: region = {"ellipse": [cx, cy, rx, ry] (canvas px),
+    "lightness": -0.15, "saturation": 0.15, "hue": 0.0 (degrees)}. Only skin-coloured pixels are touched (warm hue,
+    medium saturation), so hoodies, eye whites, hair and blue upholstery inside the ellipse are left alone."""
+    import colorsys
+    cx, cy, rx, ry = region["ellipse"]
+    dl, ds = region.get("lightness", 0.0), region.get("saturation", 0.0)
+    dh = region.get("hue", 0.0) / 360.0
+    feather = region.get("feather", 0.3)
+    px = im.load()
+    w, h = im.size
+    ramp = lambda v, lo, hi: min(1.0, max(0.0, (v - lo) / (hi - lo)))
+    for y in range(max(0, int(cy - ry)), min(h, int(cy + ry) + 1)):
+        for x in range(max(0, int(cx - rx)), min(w, int(cx + rx) + 1)):
+            d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+            if d >= 1:
+                continue
+            p = px[x, y]
+            r, g, b = (c / 255 for c in p[:3])
+            hh, s, v = colorsys.rgb_to_hsv(r, g, b)
+            if not (hh < 0.13 or hh > 0.97):
+                continue
+            wgt = ramp(s, 0.15, 0.25) * ramp(-s, -0.85, -0.75) * ramp(v, 0.2, 0.3) * min(1.0, (1 - d) / feather)
+            if wgt <= 0:
+                continue
+            hh, l, s = colorsys.rgb_to_hls(r, g, b)
+            hh = (hh + dh * wgt) % 1.0
+            l = min(1.0, l * (1 + dl * wgt))
+            s = min(1.0, s * (1 + ds * wgt))
+            px[x, y] = tuple(round(c * 255) for c in colorsys.hls_to_rgb(hh, l, s)) + tuple(p[3:])
+
+
+def cmd_finalize(a):
+    if Image is None:
+        sys.exit("finalize needs Pillow (pip install pillow)")
+    from PIL import ImageDraw as _ID
+    story = json.loads(Path(a.story).read_text(encoding="utf-8"))
+    base = story_image_dir(a.story, a.image_dir)
+    raw, art = base / "raw", base / "art"
+    if not raw.is_dir():
+        sys.exit(f"No raw/ folder in {base}")
+    art.mkdir(exist_ok=True)
+    cfg_path = raw / "finalize.json"
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+    kinds = image_kinds(story)
+    sources = {}
+    for p in sorted(raw.iterdir()):
+        if p.is_file() and p.suffix.lower() in RAW_EXTS and not p.name.startswith(("_", ".")):
+            if p.stem in sources:
+                print(f"  ! two raw files for {p.stem}: {sources[p.stem].name} and {p.name}; using the newer")
+                if p.stat().st_mtime < sources[p.stem].stat().st_mtime:
+                    continue
+            sources[p.stem] = p
+    manifest_path = art / ".finalize.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    only = set(a.only or [])
+    done = skipped = 0
+    for stem, src in sources.items():
+        if only and stem not in only:
+            continue
+        opts = cfg.get(stem, {})
+        kind = opts.get("kind") or kinds.get(stem) or guess_kind(stem)
+        ext = ".jpg" if kind == "background" else ".png"
+        dst = art / (stem + ext)
+        st = src.stat()
+        sig = {"src": src.name, "size": st.st_size, "mtime": int(st.st_mtime), "opts": opts, "kind": kind}
+        if dst.exists() and manifest.get(stem) == sig and not a.force:
+            skipped += 1
+            continue
+        with Image.open(src) as im0:
+            im = im0.convert("RGB")
+        notes = []
+        zoom = float(opts.get("zoom", 1.0))
+        win_w = im.size[0] if im.size[0] / im.size[1] <= CANVAS_W / CANVAS_H else round(im.size[1] * CANVAS_W / CANVAS_H)
+        im, lost = crop_to_canvas(im, opts.get("anchor", (0.5, 0.5)), zoom)
+        if zoom > 1:
+            notes.append(f"zoom x{zoom:g}" + (f" (upscaled x{CANVAS_W / (win_w / zoom):.2f}, may look soft)" if win_w / zoom < CANVAS_W else ""))
+        elif lost > 0.05:
+            notes.append(f"crop removed {lost:.0%}" + ("" if "anchor" in opts else " (centred; set \"anchor\" to move it)"))
+        if kind == "background":
+            key = "none"
+        else:
+            detected, kc = detect_key(im, kind)
+            key = opts.get("key", detected)
+            if key != detected:  # forced key: fall back to the pure colour
+                kc = {"green": (0, 255, 0), "magenta": (255, 0, 255), "black": (0, 0, 0)}.get(key, kc)
+            if key in ("green", "magenta"):
+                im = chroma_key(im, kc, key)
+            elif key == "black":
+                im = luma_key(im, kc)
+            else:
+                notes.append(f"no backdrop detected (border {kc}); saved opaque")
+                im = im.convert("RGBA")
+            if key != "none":
+                notes.append(f"{key} keyed")
+        if "opacity" in opts and im.mode == "RGBA":
+            alpha = im.getchannel("A").point(lambda v: round(v * opts["opacity"]))
+            im.putalpha(alpha)
+            notes.append(f"opacity x{opts['opacity']}")
+        for region in opts.get("skin", []):
+            adjust_skin(im, region)
+        if opts.get("skin"):
+            notes.append(f"{len(opts['skin'])} skin adjustment(s)")
+        for stale in art.glob(stem + ".*"):
+            if stale != dst:
+                stale.unlink()
+        if kind == "background":
+            im.save(dst, quality=90, subsampling=0, optimize=True)
+        else:
+            im.save(dst, optimize=True)
+        if a.show_regions and opts.get("skin"):
+            prev = im.convert("RGB")
+            d = _ID.Draw(prev)
+            for region in opts["skin"]:
+                cx, cy, rx, ry = region["ellipse"]
+                d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], outline=(255, 0, 255), width=2)
+            (art / "_preview").mkdir(exist_ok=True)
+            prev.save(art / "_preview" / f"{stem}.jpg", quality=85)
+        manifest[stem] = sig
+        manifest_path.write_text(json.dumps(manifest, indent=1, sort_keys=True), encoding="utf-8")
+        done += 1
+        print(f"  {src.name} -> art/{dst.name} ({kind}" + (f"; {'; '.join(notes)}" if notes else "") + ")")
+    print(f"Finalized {done}, up to date {skipped}" + (f", of {len(sources)} raw image(s)" if not only else ""))
+    unused = sorted(set(sources) - set(kinds))
+    if unused:
+        print("Not referenced by the story (finalized anyway): " + ", ".join(unused))
+    return 0
+
+
+def best_image(base, stem):
+    """First existing file for `stem` in art/, originals/, placeholders/, then the story folder itself."""
+    for folder in LINK_ORDER:
+        d = base / folder
+        for ext in (".png", ".jpg", ".jpeg", ".webp"):
+            if (d / (stem + ext)).exists():
+                return folder, d / (stem + ext)
+    return None, None
+
+
+def cmd_relink(a):
+    sp = Path(a.story)
+    text = sp.read_text(encoding="utf-8")
+    story = json.loads(text)
+    base = story_image_dir(sp, a.image_dir)
+    root = Path(a.root) if a.root else REPO_ROOT
+    changes, missing, where = [], set(), {}
+
+    def link(path):
+        if not isinstance(path, str) or is_remote(path):
+            return path
+        stem = Path(path).stem
+        folder, found = best_image(base, stem)
+        if not found:
+            missing.add(stem)
+            return path
+        where[stem] = folder
+        try:
+            new = "./" + found.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            new = str(found)
+        if new != path:
+            changes.append((path, new))
+        return new
+
+    td = story.get("title_data") or {}
+    if td.get("title_screen"):
+        td["title_screen"] = link(td["title_screen"])
+    for ch in (story.get("chapters") or {}).values():
+        for ev in (ch.get("events") or {}).values():
+            if isinstance(ev, dict):
+                for f in IMAGE_KEYS:
+                    if ev.get(f):
+                        ev[f] = link(ev[f])
+
+    uniq = sorted(set(changes))
+    for old, new in uniq:
+        print(f"  {old}\n    -> {new}")
+    counts = Counter(where.values())
+    total = len(where) + len(missing)
+    print(f"\n{total} images: {counts.get('art', 0)} final art, {counts.get('originals', 0)} old originals, "
+          f"{counts.get('placeholders', 0)} placeholders, {counts.get('.', 0)} loose in the story folder, "
+          f"{len(missing)} missing")
+    if a.verbose:
+        for folder in LINK_ORDER:
+            names = sorted(s for s, f in where.items() if f == folder)
+            if names:
+                print(f"  {folder}: {', '.join(names)}")
+    if missing:
+        print("  missing: " + ", ".join(sorted(missing)))
+    if a.dry_run or not uniq:
+        print("Dry run; story not changed." if a.dry_run else "Story already up to date.")
+        return 0
+    backup = sp.with_name(sp.name + ".bak")
+    backup.write_text(text, encoding="utf-8")
+    one_line = text.count("\n") <= 2
+    sp.write_text(json.dumps(story, ensure_ascii=False, separators=(",", ":")) if one_line else dump_story(story),
+                  encoding="utf-8")
+    print(f"Updated {len(changes)} reference(s) in {sp} (previous version saved as {backup.name})")
+    return 0
+
+
+# =====================================================================
 # CLI
 # =====================================================================
 def main(argv=None):
@@ -1218,6 +1538,22 @@ def main(argv=None):
     p.add_argument("--list", help="also write a Markdown list of what was created")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_placeholders)
+
+    f = sub.add_parser("finalize", help="crop/resize/key raw generator output into game-ready art/")
+    f.add_argument("story", help="story .json (its art lives in stories/<name>/)")
+    f.add_argument("--image-dir", help="story art folder (default stories/<story name>/)")
+    f.add_argument("--only", nargs="+", metavar="NAME", help="only these images (file stems, e.g. bg_exam_room_intake fg_julia_display_case)")
+    f.add_argument("--force", action="store_true", help="rebuild even if art/ is newer than raw/")
+    f.add_argument("--show-regions", action="store_true", help="write art/_preview/ copies with skin ellipses drawn")
+    f.set_defaults(fn=cmd_finalize)
+
+    r = sub.add_parser("relink", help="point every image in the story at art/, else originals/, else placeholders/")
+    r.add_argument("story")
+    r.add_argument("--image-dir", help="story art folder (default stories/<story name>/)")
+    r.add_argument("--root", help="project root that ./paths resolve against (default: repo root)")
+    r.add_argument("--dry-run", action="store_true")
+    r.add_argument("-v", "--verbose", action="store_true", help="list which images come from where")
+    r.set_defaults(fn=cmd_relink)
 
     args = ap.parse_args(argv)
     return args.fn(args)
