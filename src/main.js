@@ -27,6 +27,7 @@ var myGameArea =
         {
             this.canvas.addEventListener("mousemove", MOUSE.Move);
             this.canvas.addEventListener("click", MOUSE.LeftClick);
+            document.addEventListener("keydown", OnKeyDown);
             this.bListenersAttached = true;
         }
         RENDER.DrawImage(LOGO_URL);
@@ -77,6 +78,22 @@ function Update(timestamp)
 
     RENDER.Render(fDeltaMs);
     requestAnimationFrame(Update);
+}
+
+// --------------------------------
+// OnKeyDown
+//     Space advances the story like a click does (player only; a choice screen still needs a click)
+// @param - evt : The keyboard event passed in from the event listener
+// --------------------------------
+function OnKeyDown(evt)
+{
+    if (evt.code != "Space" || evt.repeat || InEditMode()) { return; }
+    let el = document.activeElement;
+    let bTyping = (el != null) && (el.tagName == "TEXTAREA" || el.tagName == "SELECT" ||
+                                   (el.tagName == "INPUT" && el.type != "checkbox" && el.type != "button"));
+    if (bTyping) { return; } // the space belongs to the field being typed in
+    evt.preventDefault(); // no page scroll, and no "click" on a focused button such as PLAY VOICE
+    DIALOG.OnMouseClick();
 }
 
 // --------------------------------
