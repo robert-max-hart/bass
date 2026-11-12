@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicegen"
+version = "0.1.0"
+description = "Directed voice lines from Kokoro TTS: styles, word stress, variation, effects"
+requires-python = ">=3.10"
+dependencies = [
+    "kokoro==0.9.4",          # engine.py re-implements part of KModel; other versions are refused
+    "misaki[en]==0.9.4",
+    "torch>=2.6",             # torch.load(weights_only=True)
+    "numpy",
+    "scipy",
+    "librosa",
+    "soundfile>=0.12",        # wheels bundle libsndfile with Ogg Opus
+]
+
+[project.scripts]
+voicegen = "voicegen.cli:main"
+
+[tool.setuptools]
+packages = ["voicegen"]

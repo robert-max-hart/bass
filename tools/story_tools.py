@@ -168,35 +168,41 @@ NS_FO = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
 NS_OFFICE = "urn:oasis:names:tc:opendocument:xmlns:office:1.0"
 
 
-def read_odt(path):
+def read_odt(path, bold=False):
+    """paragraphs as ('p'|'h', T). The mask is '1' for italic; with bold=True it is a style code instead:
+    '0' plain, '1' italic, '2' bold, '3' bold italic (only voice_lines.py asks for bold)."""
     with zipfile.ZipFile(path) as z:
         root = ET.fromstring(z.read("content.xml"))
     styles = {}
     for s in root.iter(f"{{{NS_STYLE}}}style"):
         tp = s.find(f"{{{NS_STYLE}}}text-properties")
         ital = tp is not None and tp.get(f"{{{NS_FO}}}font-style") == "italic"
-        styles[s.get(f"{{{NS_STYLE}}}name")] = (ital, s.get(f"{{{NS_STYLE}}}parent-style-name"))
+        bld = tp is not None and tp.get(f"{{{NS_FO}}}font-weight") in ("bold", "600", "700", "800", "900")
+        styles[s.get(f"{{{NS_STYLE}}}name")] = (ital, bld, s.get(f"{{{NS_STYLE}}}parent-style-name"))
 
-    def is_italic(name, depth=0):
+    def has(name, which, depth=0):
         if not name or name not in styles or depth > 8:
             return False
-        ital, parent = styles[name]
-        return ital or is_italic(parent, depth + 1)
+        v = styles[name]
+        return v[which] or has(v[2], which, depth + 1)
 
-    def inline(el, ital, parts):
+    def inline(el, st, parts):
         if el.text:
-            parts.append((el.text, ital))
+            parts.append((el.text, st))
         for c in el:
             tag = c.tag.rsplit("}", 1)[-1]
             if tag == "s":
-                parts.append((" " * int(c.get(f"{{{NS_TEXT}}}c", "1")), ital))
+                parts.append((" " * int(c.get(f"{{{NS_TEXT}}}c", "1")), st))
             elif tag in ("tab", "line-break"):
-                parts.append((" ", ital))
+                parts.append((" ", st))
             elif tag != "note":
-                ci = ital or (tag == "span" and is_italic(c.get(f"{{{NS_TEXT}}}style-name")))
-                inline(c, ci, parts)
+                cs = st
+                if tag == "span":
+                    name = c.get(f"{{{NS_TEXT}}}style-name")
+                    cs = (st[0] or has(name, 0), st[1] or has(name, 1))
+                inline(c, cs, parts)
             if c.tail:
-                parts.append((c.tail, ital))
+                parts.append((c.tail, st))
 
     body = root.find(f".//{{{NS_OFFICE}}}text")
     items = []
@@ -205,16 +211,19 @@ def read_odt(path):
         if tag not in ("p", "h"):
             continue
         parts = []
-        inline(el, is_italic(el.get(f"{{{NS_TEXT}}}style-name")), parts)
+        name = el.get(f"{{{NS_TEXT}}}style-name")
+        inline(el, (has(name, 0), has(name, 1)), parts)
         t = T()
-        for s, ital in parts:
-            t = t + T(s, ("1" if ital else "0") * len(s))
+        for txt, (ital, bld) in parts:
+            code = str(int(ital) + 2 * int(bld)) if bold else ("1" if ital else "0")
+            t = t + T(txt, code * len(txt))
         items.append(("h" if tag == "h" else "p", t))
     return items
 
 
-def read_plain(path):
-    """.txt / .md: one paragraph per non-empty line. '# ' lines are headings, *text* is italic."""
+def read_plain(path, bold=False):
+    """.txt / .md: one paragraph per non-empty line. '# ' lines are headings, *text* is italic.
+    With bold=True, **text** is bold and the mask is a style code as in read_odt."""
     items = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -226,19 +235,32 @@ def read_plain(path):
             items.append((kind, T(line.strip())))
             continue
         t = T()
-        for i, piece in enumerate(line.split("*")):
-            ital = (i % 2 == 1) and line.count("*") % 2 == 0
-            t = t + T(piece, ("1" if ital else "0") * len(piece))
+        if bold:
+            toks = re.split(r"(\*\*|\*)", line)
+            singles_ok = toks.count("*") % 2 == 0
+            doubles_ok = toks.count("**") % 2 == 0
+            ital = b = False
+            for tok in toks:
+                if tok == "**" and doubles_ok:
+                    b = not b
+                elif tok == "*" and singles_ok:
+                    ital = not ital
+                elif tok:
+                    t = t + T(tok, str(int(ital) + 2 * int(b)) * len(tok))
+        else:
+            for i, piece in enumerate(line.split("*")):
+                ital = (i % 2 == 1) and line.count("*") % 2 == 0
+                t = t + T(piece, ("1" if ital else "0") * len(piece))
         items.append((kind, t))
     return items
 
 
-def read_manuscript(path):
+def read_manuscript(path, bold=False):
     ext = Path(path).suffix.lower()
     if ext == ".odt":
-        return read_odt(path)
+        return read_odt(path, bold)
     if ext in (".txt", ".md", ".markdown"):
-        return read_plain(path)
+        return read_plain(path, bold)
     sys.exit(f"Unsupported manuscript type '{ext}' (use .odt, .txt or .md)")
 
 
