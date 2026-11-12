@@ -5,6 +5,7 @@ Resolution order: DEFAULTS -> the style -> the line's own settings.
   (so `{deep, speed 0.9}` = 0.9 x 0.75).
 - `pitch` and `volume` in a direction add to the style's; every other setting replaces the style's value.
 """
+import re
 from dataclasses import dataclass, field
 
 DEFAULTS = dict(speed=0.95, pitch=0.0, range_=1.0, drift=0.0, pause=1.0, floor=0.0, human=1.0,
@@ -35,8 +36,15 @@ EFFECTS = ('internal',)                               # post effects that combin
 STRESS = {1: dict(pitch=1.5, dur=1.12), 2: dict(pitch=3.0, dur=1.25), -1: dict(pitch=-1.0, dur=0.9)}
 STRETCH = {1: 1.5, 2: 2.0}
 
+# ---- question rise: Kokoro says "Julia?" like a statement (a peak on the stressed syllable, then a fall), so the
+# word before a "?" gets its own contour flattened and a rise laid on top: gradual at first, then sharp.
+# auto: semitones used on one-word questions when the line doesn't set `rise`; flatten: 0..1, how much of the
+# model's own movement on that word is removed; gradual: the share of the rise that is linear (the rest
+# comes as t**power, i.e. at the end).
+QUESTION = dict(auto=5.0, flatten=0.9, gradual=0.3, power=4.0)
+
 SETTING_NAMES = {'speed': 'speed', 'pitch': 'pitch', 'range': 'range_', 'drift': 'drift', 'pause': 'pause',
-                 'floor': 'floor', 'human': 'human', 'volume': 'volume', 'take': 'take'}
+                 'floor': 'floor', 'human': 'human', 'volume': 'volume', 'take': 'take', 'rise': 'rise'}
 ADDITIVE = ('pitch', 'volume')
 
 
@@ -114,3 +122,12 @@ def resolve(direction):
     s['effects'] = list(direction.effects)
     s['level_db'] = STYLE_LEVEL_DB.get(name, 0.0) + s.pop('volume')
     return s
+
+
+def question_rise(settings, plain):
+    """semitones of rise on the word before each "?": the line's `rise`, or QUESTION['auto'] on a
+    one-word question. (`rise` is not in DEFAULTS, so lines without it keep their cache keys.)"""
+    if 'rise' in settings:
+        return settings['rise']
+    words = re.findall(r"[^\W\d_][\w'’-]*", plain)
+    return QUESTION['auto'] if len(words) == 1 and plain.rstrip().rstrip('"”’\'').endswith('?') else 0.0

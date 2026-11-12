@@ -51,6 +51,8 @@ def tuning(job, settings):
     mt = marks_mod.parse(job.text)
     if mt.marks:
         t['marks'] = [styles.STRESS, styles.STRETCH]
+    if styles.question_rise(settings, mt.plain):
+        t['question'] = styles.QUESTION
     if 'internal' in settings['effects']:
         t['internal'] = dsp.INTERNAL
     if settings['style'] == 'soft':

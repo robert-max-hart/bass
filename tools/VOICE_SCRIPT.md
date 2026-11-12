@@ -81,6 +81,7 @@ A direction is a comma-separated list: at most one **style**, any **effects**, a
 | `human 0.5` | natural variation in timing and pitch: 0 = none, 1 = default | 1.0 |
 | `take 2` | a different variation of the same line; try takes until one sounds right | 0 |
 | `floor 0.55` | ends voicing cleanly when pitch sags (cures growl at line ends) | from style |
+| `rise 5` | semitones of question rise on the word before each `?`: level at first, then sharp. Kokoro says short questions like statements; one-word questions ("Julia?") get `rise 5` automatically, `rise 0` turns it off | 0 (5 on one-word questions) |
 
 Directions combine in this order: `@defaults`, then the speaker's `@cast` direction, then a ramp, then the
 line's own. A later style replaces an earlier one, settings replace earlier settings, and effects add up.

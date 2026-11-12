@@ -222,6 +222,21 @@ class Engine:
             k = torch.ones(1, 1, 9) / 9
             st = torch.nn.functional.conv1d(
                 torch.nn.functional.pad(st.view(1, 1, -1), (4, 4), mode='replicate'), k).view(-1)
+        # question rise: after the smoothing, which would otherwise blur away part of the flattening
+        Q = styles.QUESTION
+        for (a, b), o in edits.items():
+            if not o.get('rise'):
+                continue
+            lo, hi = int(starts[a]), int(ends[b - 1])
+            while hi < len(v) and v[hi]:                                   # on through the "?" to the end of voicing
+                hi += 1
+            idx = torch.nonzero(v[lo:hi]).view(-1) + lo
+            if len(idx) < 3:
+                continue
+            now = 12 * torch.log2(f[idx] / f[v].median()) + st[idx]       # the word's contour so far
+            t = torch.linspace(0, 1, len(idx))
+            corr = -(now - now.mean()) * Q['flatten'] + o['rise'] * (Q['gradual'] * t + (1 - Q['gradual']) * t ** Q['power'])
+            st[idx] += corr * torch.clamp(torch.arange(len(idx)) / 6.0, max=1.0)   # eased in, no jump at the start
         f = f * 2 ** (st / 12)
         if floor and v.any():
             lim = max(VOICED_HZ, float(f[f > VOICED_HZ].median()) * floor)
@@ -280,6 +295,13 @@ class Engine:
             e['dur'] = e.get('dur', 1.0) * styles.STRETCH.get(mk.stretch, 1.0)
             for t in hit:
                 word_edits[id(t)] = e
+
+        rise = styles.question_rise(s, mt.plain)
+        if rise:
+            for i, t in enumerate(tokens):
+                nxt = next((u for u in tokens[i + 1:] if u.phonemes), None)
+                if t.is_word and nxt is not None and not nxt.is_word and '?' in nxt.text:
+                    word_edits[id(t)] = dict(word_edits.get(id(t), {}), rise=rise)
 
         pack = self.voice(voice)
         if s['style'] == 'soft':

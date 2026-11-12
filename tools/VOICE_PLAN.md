@@ -81,6 +81,10 @@ remembered, and keep the `.pt` files backed up.
   - `soft`: the voice's timbre with af_nicole's delivery, low, −10 dB by ear. Placeholder-quality.
   - `whisper`: "w65" (model consonants plus breath-coloured noise on vowels, −12 dB by ear).
     **Not perfect; use sparingly.**
+- **Question rise** (2026-11-12): Kokoro says one-word questions like statements (peak, fall, sag). The word
+  before a `?` gets its contour flattened (90 %) and a rise laid on, level then sharp, through the end of
+  voicing; applied after the offset smoothing. One-word questions get `rise 5` automatically (5 and 7 both
+  approved by ear on "Julia?"); `{rise N}` on any line. Constants in `styles.QUESTION`.
 - **Loudness is plain gain.** The model's energy curve is inert. Every clip is levelled by A-weighted
   loudness to one target, then the style's offset and the line's `volume` are applied.
 - **Variation (`human`)**: default **1.0** ("medium"), per-line override. It's seeded, so builds are
