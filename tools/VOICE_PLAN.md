@@ -79,8 +79,11 @@ remembered, and keep the `.pt` files backed up.
   - `deep`: "m05", dead-flat monotone for very deeply hypnotized lines and mantras. The user's favourite.
   - `shout`: pitch +4, range ×1.4, voicing floor 0.55 (fixes the growl at the tail).
   - `soft`: the voice's timbre with af_nicole's delivery, low, −10 dB by ear. Placeholder-quality.
-  - `whisper`: "w65" (model consonants plus breath-coloured noise on vowels, −12 dB by ear).
-    **Not perfect; use sparingly.**
+  - `whisper`: calibrated against real whisper recordings (2026-11-12, eight rounds; replaced "w65"). Vowels
+    become noise through the line's own vowel shapes with a real whisper's tone (`whisper_profile.py`),
+    consonants are EQ'd toward real hiss and given short tails, pitchless voice-like bits are turned down,
+    then a de-esser and two low-mid cuts found by ear (623 Hz −17 dB, 546 Hz −10 dB). −12 dB by ear.
+    Tested on Harris; constants in `dsp.WHISPER`.
 - **Question rise** (2026-11-12): Kokoro says one-word questions like statements (peak, fall, sag). The word
   before a `?` gets its contour flattened (90 %) and a rise laid on, level then sharp, through the end of
   voicing; applied after the offset smoothing. One-word questions get `rise 5` automatically (5 and 7 both

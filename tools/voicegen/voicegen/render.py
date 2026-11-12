@@ -58,7 +58,8 @@ def tuning(job, settings):
     if settings['style'] == 'soft':
         t['soft'] = styles.SOFT_DELIVERY
     if settings['style'] == 'whisper':
-        t['whisper'] = engine.H_TEXT
+        from .whisper_profile import VOWEL, FRIC
+        t['whisper'] = [dsp.WHISPER, VOWEL, FRIC]
     return t
 
 

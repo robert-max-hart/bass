@@ -64,7 +64,7 @@ A direction is a comma-separated list: at most one **style**, any **effects**, a
 | `deep` | dead-flat, slow monotone, for very deep trance and mantras |
 | `shout` | higher and livelier |
 | `soft` | quiet and gentle (placeholder quality) |
-| `whisper` | breathy whisper. Not perfect; use sparingly |
+| `whisper` | breathy whisper, modelled on a real one |
 
 | Effect | Sound |
 |---|---|

@@ -31,7 +31,6 @@ MAX_PHONEMES = 510
 VOICED_HZ = 70.0                    # F0 below this = onset/fade-out frames; never reshape them
 PUNCT = set(',.;:!?—…')
 SENTENCE_END = set('.!?…')
-H_TEXT = 'Hush. Hat. Hope. Who. Hum. Hush. Hard. Hold. Hush. Heat. Hush. Ahh. Hush. Huff. Hush. Hoop. Shh. Hush.'
 
 
 @dataclass
@@ -75,7 +74,6 @@ class Engine:
         self.m = self.pipe.model
         self.vocab = self.m.vocab
         self._packs = {}
-        self._breath = {}
 
     # ------------------------------------------------------------------ voices
     def voice(self, spec):
@@ -263,15 +261,6 @@ class Engine:
             return np.zeros(0, np.float32), np.zeros(0)
         return np.concatenate(audios), np.concatenate(voiced)
 
-    def breath(self, voice):
-        """the voice's own unvoiced 'h' sounds (used only for their average spectrum)"""
-        key = str(voice) if not self.torch.is_tensor(voice) else id(voice)
-        if key not in self._breath:
-            mt = marks_mod.parse(H_TEXT)
-            a, voiced = self._speak(self.tokenize(mt), {}, self.voice(voice), None, speed=0.8)
-            self._breath[key] = dsp.cut_breath(a, 1 - voiced)
-        return self._breath[key]
-
     # ------------------------------------------------------------------ public
     def render(self, text, voice, direction='', seed=0, finish=True):
         """
@@ -312,7 +301,7 @@ class Engine:
         kw = {k: s[k] for k in ('speed', 'pitch', 'range_', 'drift', 'pause', 'floor', 'human')}
         audio, voiced = self._speak(tokens, word_edits, pack, rng, **kw)
         if s['style'] == 'whisper' and len(audio):
-            audio = dsp.whisper_mix(audio, voiced, self.breath(voice), seed=make_seed('breath', seed, s['take']) % 2**32)
+            audio = dsp.whisper(audio, voiced, seed=make_seed('breath', seed, s['take']) % 2**32)
 
         if finish and len(audio):
             audio = dsp.trim(audio)
