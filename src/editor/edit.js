@@ -386,14 +386,13 @@ var EDIT = (function () {
     // --------------------------------
     edit.PreviewAudio = function(strUrl)
     {
-        if (m_previewAudio != null) { m_previewAudio.pause(); m_previewAudio = null; }
+        AUDIO_WAKE.Stop(m_previewAudio); m_previewAudio = null;
         if (strUrl == null || strUrl == "") { return; }
         m_previewAudio = new Audio(strUrl);
         m_previewAudio.preload = 'auto';
         m_previewAudio.loop = false;
         m_previewAudio.load();
-        let promise = m_previewAudio.play();
-        if (promise != null) { promise.catch(function(err) { console.log("Preview did not play: " + strUrl + " (" + err.name + ")"); }); }
+        AUDIO_WAKE.Play(m_previewAudio, function(err) { console.log("Preview did not play: " + strUrl + " (" + err.name + ")"); });
     };
 
     // --------------------------------

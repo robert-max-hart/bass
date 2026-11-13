@@ -157,10 +157,9 @@ var DIALOG = (function () {
     // --------------------------------
     function Restart(audio)
     {
-        audio.pause();
+        AUDIO_WAKE.Stop(audio);
         audio.currentTime = 0;
-        let promise = audio.play();
-        if (promise != null) { promise.catch(function(err) { console.log("Audio did not play: " + audio.src + " (" + err.name + ")"); }); }
+        AUDIO_WAKE.Play(audio, function(err) { console.log("Audio did not play: " + audio.src + " (" + err.name + ")"); });
     }
 
     // --------------------------------
@@ -190,7 +189,7 @@ var DIALOG = (function () {
     // --------------------------------
     d.ClearSound = function()
     {
-        if (m_sfx != null) { m_sfx.pause(); } // stop any sounds first
+        AUDIO_WAKE.Stop(m_sfx); // stop any sounds first
         m_sfx = null;
         UpdateAudioButtons();
     };
@@ -221,7 +220,7 @@ var DIALOG = (function () {
     // --------------------------------
     d.ClearVoice = function()
     {
-        if (m_voice != null) { m_voice.pause(); }
+        AUDIO_WAKE.Stop(m_voice);
         m_voice = null;
         UpdateAudioButtons();
     };
@@ -242,7 +241,7 @@ var DIALOG = (function () {
     d.ToggleMute = function(bChecked)
     {
         m_bMuteSounds = bChecked;
-        if (bChecked && m_sfx != null) { m_sfx.pause(); }
+        if (bChecked) { AUDIO_WAKE.Stop(m_sfx); }
     };
 
     // --------------------------------
@@ -252,7 +251,7 @@ var DIALOG = (function () {
     d.ToggleMuteVoice = function(bChecked)
     {
         m_bMuteVoice = bChecked;
-        if (bChecked && m_voice != null) { m_voice.pause(); }
+        if (bChecked) { AUDIO_WAKE.Stop(m_voice); }
     };
 
     // --------------------------------
