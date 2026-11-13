@@ -22,7 +22,9 @@ the mixer sets each half on its own:
 - **Blend**: any stock or own voices with weights. Weights are divided by their sum, so a negative weight
   pushes away from a voice (`julia 1.2, af_nicole -0.2`).
 - **Adjust**: sliders along `gender`, `accent` and the eight principal axes of the 43 stock voices, in
-  standard deviations. A mark on each slider shows where the current voice sits.
+  standard deviations. A mark on each slider shows where the current voice sits. Each slider is named for
+  what it does to that half (e.g. timbre *size*, delivery *pitch*, *expression*, *tempo*; hover for details,
+  `AXIS_NAMES` in `voicelab.py`); recipes store the ids (`gender`, `pc6`, ...), which never change.
 - **Variations**: six random nudges along the principal axes; keep the best and repeat with a smaller step.
 - **Preview** through the full engine, with any direction (`trance 0.6`, `whisper`, ...) or a line picked from
   `--script`; every take is kept so you can replay or restore it, and *Compare with* plays another voice.

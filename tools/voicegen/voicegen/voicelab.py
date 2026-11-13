@@ -34,6 +34,44 @@ NAMED_AXES = {
     'gender': ('female', 'male', lambda n: n[1] == 'f', lambda n: n[1] == 'm'),
     'accent': ('American', 'British', lambda n: n[0] == 'a', lambda n: n[0] == 'b'),
 }
+# What each axis does, per half: id -> (label, - end, + end, hint). Found by ear, then checked against
+# measurements of -2/+2 sweeps (2026-11). The ids are what recipes store, so they never change; only the names do.
+# The PC directions depend on AXIS_BASIS, N_PCS and the sign convention in Lab.axes(): change any of those and
+# these names no longer apply.
+AXIS_NAMES = {
+    'timbre': {     # the decoder: voice colour only (pitch and pacing come from the delivery half)
+        'pc1': ('brightness', 'muffled', 'bright', 'top end ~9 dB louder at +; the British voices sit at +'),
+        'pc2': ('colour', 'Asian', 'American',
+                'vowel colour of the Japanese/Hindi voices (-) vs onyx, fable, echo (+); not rhythm'),
+        'pc3': ('size', 'feminine', 'masculine',
+                'vocal-tract size: - smaller and airier, + larger and darker; the pitch hardly moves'),
+        'pc4': ('clarity', 'clear', 'covered',
+                'darker, rounder vowels at + (as if through rounded lips); the Japanese female voices sit at +'),
+        'pc5': ('grit', 'clean', 'gravelly', 'hoarse and rough at +: the santa voices, bm_lewis, am_michael'),
+        'pc6': ('region', 'American', 'European',
+                'from af_kore, af_aoede, am_fenrir, am_puck (-) to the Spanish and Italian voices (+)'),
+        'pc7': ('softness', 'harsh', 'soft', 'breathy and gentle at +; af_nicole sits at the + end'),
+        'pc8': ('unclear', '−', '+', 'no clear effect found by ear or by measurement; slightly less hiss at +'),
+    },
+    'delivery': {   # the prosody predictor: pitch, melody, pacing
+        'gender': ('pitch', 'high', 'low',
+                   'pitch only, ~4.7 semitones per step; creaky at the low end. For a gender change, '
+                   'pair it with timbre size'),
+        'accent': ('endings', 'falling', 'flat',
+                   '- starts phrases high and falls far; + flatter, endings may even rise (the British voices)'),
+        'pc1': ('pitch 2', 'high', 'low', 'like pitch but colours the voice differently; also ~12% faster at +'),
+        'pc2': ('pitch+pace', 'low, slow', 'high, quick', '~5 semitones higher and ~20% faster at +, shorter pauses'),
+        'pc3': ('energy', 'subdued', 'energetic', 'livelier at +: a little higher and quicker'),
+        'pc4': ('liveliness', 'lively', 'flat, brisk',
+                'like endings (high starts and big falls at -) but also ~7% faster at +'),
+        'pc5': ('starts (subtle)', 'low starts', 'held up',
+                'subtle: at + the start of each phrase stays high for longer before it falls'),
+        'pc6': ('expression', 'monotone', 'expressive',
+                'how far the pitch swings: flat at -, higher peaks and deeper falls at +'),
+        'pc7': ('tempo', 'quicker', 'slower', 'words and pauses ~10-20% longer at +'),
+        'pc8': ('tempo (subtle)', 'quicker', 'slower', 'subtle: a few % slower at +, slightly deeper falls'),
+    },
+}
 
 
 def empty_recipe(source=None):
@@ -69,7 +107,7 @@ class Lab:
 
     # ------------------------------------------------------------------ axes
     def axes(self):
-        """{half: {axis_id: {'lo', 'hi', 'label', 'vec': [510, 1, 128] tensor (one std)}}}"""
+        """{half: {axis_id: {'lo', 'hi', 'label', 'hint', 'vec': [510, 1, 128] tensor (one std)}}}"""
         if self._axes is None:
             X = np.stack([self.pack(n).numpy() for n in AXIS_BASIS])        # n, 510, 1, 256
             out = {}
@@ -81,13 +119,18 @@ class Lab:
                     a = np.array([pos(n) for n in AXIS_BASIS]); b = np.array([neg(n) for n in AXIS_BASIS])
                     d = H[a].mean(0) - H[b].mean(0); d /= np.linalg.norm(d)
                     # one unit = one standard deviation of the stock voices along this direction
-                    ax[aid] = dict(lo=lo, hi=hi, label=aid, vec=d * ((H - mu) @ d).std())
+                    ax[aid] = dict(lo=lo, hi=hi, label=aid, hint=f'stock {lo} vs {hi} voices',
+                                   vec=d * ((H - mu) @ d).std())
                 _, s, Vt = np.linalg.svd(H - mu, full_matrices=False)
                 for k in range(N_PCS):
                     v = Vt[k] * (1 if Vt[k].sum() >= 0 else -1)     # fixed sign convention
                     share = s[k] ** 2 / (s ** 2).sum()
-                    ax[f'pc{k + 1}'] = dict(lo='−', hi='+', label=f'PC{k + 1} ({share:.0%})',
+                    ax[f'pc{k + 1}'] = dict(lo='−', hi='+', label=f'PC{k + 1}', hint=f'{share:.0%} of the stock variation',
                                             vec=v * s[k] / np.sqrt(len(AXIS_BASIS) - 1))
+                for aid, a in ax.items():
+                    if aid in AXIS_NAMES.get(half, {}):
+                        a['label'], a['lo'], a['hi'], hint = AXIS_NAMES[half][aid]
+                        a['hint'] = f'{aid}: {hint}' + (f' ({a["hint"]})' if aid.startswith('pc') else '')
                 for a in ax.values():
                     a['unit'] = a['vec'] / (a['vec'] @ a['vec'])          # projection -> amount
                     a['vec'] = self.torch.tensor(a['vec'].reshape(510, 1, 128), dtype=self.torch.float32)
@@ -97,7 +140,8 @@ class Lab:
         return self._axes
 
     def axes_info(self):
-        return {h: [{'id': k, 'lo': a['lo'], 'hi': a['hi'], 'label': a['label']} for k, a in ax.items()]
+        return {h: [{'id': k, 'lo': a['lo'], 'hi': a['hi'], 'label': a['label'], 'hint': a['hint']}
+                    for k, a in ax.items()]
                 for h, ax in self.axes().items()}
 
     def position(self, pack):

@@ -61,7 +61,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-width: 0 }
 .pct.neg { color: var(--warn) }
 .addrow { display: flex; gap: 6px }
 .addrow select { flex: 1 }
-.axrow { display: grid; grid-template-columns: 5.6em 4.6em minmax(0, 1fr) 4.6em 3em; gap: 6px; align-items: center; font-size: 12px }
+.axrow { display: grid; grid-template-columns: 8em 5.4em minmax(0, 1fr) 5.4em 3em; gap: 6px; align-items: center; font-size: 12px }
 .axrow .lbl { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .axrow .end { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .axrow .end.hi { text-align: right }
@@ -230,9 +230,14 @@ function buildStrip(half) {
   const ax = el.querySelector('.axes');
   for (const a of info.axes[half]) {
     const row = document.createElement('div'); row.className = 'axrow';
-    row.innerHTML = `<span class="lbl" title="${a.label}">${a.label}</span><span class="end">${a.lo}</span>
-      <span class="track"><input type="range" min="-3" max="3" step="0.05" value="0" id="ax-${half}-${a.id}" aria-label="${half} ${a.label}"><i class="tick"></i></span>
-      <span class="end hi">${a.hi}</span><span class="val" title="click to reset">0.00</span>`;
+    row.innerHTML = `<span class="lbl"></span><span class="end"></span>
+      <span class="track"><input type="range" min="-3" max="3" step="0.05" value="0" id="ax-${half}-${a.id}"><i class="tick"></i></span>
+      <span class="end hi"></span><span class="val" title="click to reset">0.00</span>`;
+    const tip = `${a.label}: ${a.lo} ↔ ${a.hi}\n${a.hint || ''}`;
+    for (const [sel, text] of [['.lbl', a.label], ['.end', a.lo], ['.end.hi', a.hi]]) {
+      const e = row.querySelector(sel); e.textContent = text; e.title = tip;
+    }
+    row.querySelector('input[type=range]').setAttribute('aria-label', `${half} ${a.label}`);
     const r = row.querySelector('input[type=range]'), v = row.querySelector('.val');
     r.oninput = () => { recipe[half].axes[a.id] = +r.value; v.textContent = (+r.value).toFixed(2); v.classList.toggle('on', +r.value !== 0); changedSoft(); };
     r.onchange = () => changed();
