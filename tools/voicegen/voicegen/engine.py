@@ -188,7 +188,7 @@ class Engine:
         natural = dur.clone()                   # before marks lengthen words: what pitch/energy are predicted on
         for (a, b), o in edits.items():
             if o.get('dur', 1.0) != 1.0:
-                dur[a:b] = self.stretch_word(ps, a, b, dur[a:b], o['dur'], speed)
+                dur[a:b] = self.stretch_word(ps, a, b, dur[a:b], o['dur'], speed, o.get('cap'))
         # pauses: Kokoro holds mid-line punctuation for only 30-50 ms. The mark is lengthened to the pause, and
         # voicing and energy are switched off over it below, so the decoder itself renders the fade into the
         # silence and the next word's start. (Cutting silence into the audio afterwards chopped tails and left
@@ -347,15 +347,16 @@ class Engine:
         return torch.tensor(np.interp(src, np.arange(len(c)), c), dtype=curve.dtype).unsqueeze(0)
 
     @staticmethod
-    def stretch_word(ps, a, b, seg, factor, speed):
-        """lengthen (or shorten) one word's sounds by `factor`, but no sound past styles.STRETCH_CAP (even one the
-        model already held longer); what doesn't fit goes to the word's vowels. A sound the model already holds long
-        (an "r" before a comma) stretched again distorts ("deeper"). The line's last sound is exempt."""
+    def stretch_word(ps, a, b, seg, factor, speed, cap=None):
+        """lengthen (or shorten) one word's sounds by `factor`, but no sound past `cap` seconds (default
+        styles.STRETCH_CAP; even one the model already held longer); what doesn't fit goes to the word's vowels.
+        A sound the model already holds long (an "r" before a comma) stretched again distorts ("deeper").
+        The line's last sound is exempt."""
         import torch
         new = seg * factor
         if factor <= 1.0:
             return new
-        cap = styles.STRETCH_CAP * 40.0 / speed
+        cap = (styles.STRETCH_CAP if cap is None else cap) * 40.0 / speed
         last = max((i for i, c in enumerate(ps) if c not in PUNCT and c != ' '), default=-1) + 1
         lim = torch.full_like(seg, cap)
         free = torch.tensor([i + a == last for i in range(len(seg))])
@@ -371,7 +372,7 @@ class Engine:
     @staticmethod
     def stress(f, v, st, edits, word_spans, starts, ends):
         """Stressed words (edits with 'over'): the word's peak is lifted to `over` semitones above the peaks of
-        the words around it (at least `pitch`, at most styles.STRESS_MAX), then eases down `fall` semitones
+        the words around it (at least `pitch`, at most `max`, default styles.STRESS_MAX), then eases down `fall` semitones
         across the word. Relative, because the model often peaks on a neighbour
         ("have you EVER wanted"), which swamps a fixed lift. Changes st in place."""
         import torch
@@ -397,7 +398,7 @@ class Engine:
             lift = o.get('pitch', 0.0)
             if mine is not None and others:
                 lift = max(lift, max(others) + o['over'] - mine)
-            lift = min(lift, styles.STRESS_MAX)
+            lift = min(lift, o.get('max', styles.STRESS_MAX))
             t = torch.linspace(0, 1, hi - lo)
             st[lo:hi] += lift - o.get('fall', 0.0) * t
 
@@ -529,10 +530,7 @@ class Engine:
             hit = [t for t in tokens if t.span and t.is_word and t.span[0] < mk.end and t.span[1] > mk.start]
             if not hit:
                 unplaced.append(mt.plain[mk.start:mk.end]); continue
-            e = dict(styles.STRESS.get(mk.stress, {}))
-            e['dur'] = e.get('dur', 1.0) * styles.STRETCH.get(mk.stretch, 1.0)
-            if mk.stretch:
-                e['sustain'] = True
+            e = styles.word_edit(mk.stress, mk.stretch)
             for t in hit:
                 word_edits[id(t)] = e
 

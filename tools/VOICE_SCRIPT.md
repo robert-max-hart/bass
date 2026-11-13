@@ -97,6 +97,7 @@ line's own. A later style replaces an earlier one, settings replace earlier sett
 | `[word](++)` | strong stress |
 | `[word](-)` | de-stress |
 | `[word](~)`, `[word](~~)` | drawn out, very drawn out |
+| `[word](+++)` … `(+++++)`, `(~~~)` … `(~~~~~)` | more of the same: up to five of each stack (they combine too, `(+++~~~)`). Levels 3-5 are untuned extremes that may distort; each lifts the pitch more, louder and longer, and allows a bigger lift and longer sounds than levels 1-2 |
 | `[word](+~)` | marks combine |
 | `[Harris](/hˈɛɹɪs/)` | pronounce it this way (IPA, Kokoro/misaki symbols) |
 | `[Dr.](=Doctor)` | say different words; the text on screen stays the same. `[um](=)` makes a word silent |

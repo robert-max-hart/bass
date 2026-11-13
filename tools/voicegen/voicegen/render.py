@@ -52,6 +52,10 @@ def tuning(job, settings):
     mt = marks_mod.parse(job.text)
     if mt.marks:
         t['marks'] = [styles.STRESS, styles.STRETCH, styles.STRESS_MAX, styles.STRETCH_CAP, styles.SUSTAIN_ENERGY, styles.SUSTAIN_SMOOTH]
+        more = sorted({m.stress for m in mt.marks if m.stress in styles.STRESS_MORE})
+        more_s = sorted({m.stretch for m in mt.marks if m.stretch in styles.STRETCH_MORE})
+        if more or more_s:                      # only lines using levels 3-5 depend on them
+            t['marks_more'] = [{k: styles.STRESS_MORE[k] for k in more}, {k: styles.STRETCH_MORE[k] for k in more_s}]
     if any(styles.question_rises(settings, mt.plain)):
         t['question'] = styles.QUESTION
     if 'internal' in settings['effects']:

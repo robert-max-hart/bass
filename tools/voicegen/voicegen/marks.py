@@ -2,6 +2,7 @@
 
     [word](+)      stress            [word](++)   strong stress     [word](-)  de-stress
     [word](~)      drawn out         [word](~~)   very drawn out    marks combine: [word](+~)
+    up to five of each stack for more: [word](+++), [word](~~~~), [word](+++++~~~) (3-5 are untuned extremes)
     [Harris](/hˈɛɹɪs/)               respelling in IPA (misaki's own syntax, passed through to it)
     [Dr.](=Doctor)                   say different words; the screen text stays "Dr." ([um](=) = silent)
 
@@ -10,6 +11,8 @@ The bracketed text may hold several words; the mark applies to all of them.
 import re
 from dataclasses import dataclass
 
+from .styles import MARK_LEVELS
+
 MARK_RE = re.compile(r'\[([^\]]+)\]\(([^)]*)\)')
 
 
@@ -17,8 +20,8 @@ MARK_RE = re.compile(r'\[([^\]]+)\]\(([^)]*)\)')
 class Mark:
     start: int          # character span in the plain text
     end: int
-    stress: int = 0     # -1, 0, 1, 2
-    stretch: int = 0    # 0, 1, 2
+    stress: int = 0     # -1 .. styles.MARK_LEVELS
+    stretch: int = 0    # 0 .. styles.MARK_LEVELS
 
     def __bool__(self):
         return bool(self.stress or self.stretch)
@@ -29,8 +32,10 @@ def parse_mark_spec(spec):
     if not s or set(s) - set('+-~'):
         raise ValueError(f'unknown word mark "({spec})": use +, ++, -, ~, ~~, /ipa/ or =words')
     plus, minus, tilde = s.count('+'), s.count('-'), s.count('~')
-    if (plus and minus) or plus > 2 or minus > 1 or tilde > 2:
+    if (plus and minus) or minus > 1:
         raise ValueError(f'unknown word mark "({spec})"')
+    if plus > MARK_LEVELS or tilde > MARK_LEVELS:
+        raise ValueError(f'word mark "({spec})": at most {MARK_LEVELS} + and {MARK_LEVELS} ~')
     return (plus or -minus), tilde
 
 
