@@ -297,6 +297,26 @@ function changed() {
 function valid(r) { return HALVES.every(h => Math.abs(Object.values(r[h].mix).reduce((a, b) => a + b, 0)) > 1e-6); }
 
 // ------------------------------------------------------------------ preview
+// Keep the sound output awake. Idle outputs power down (PipeWire suspends the sink after ~5 s, the Intel HDA
+// chip powers off after 1 s; Bluetooth and USB devices do the same), and the first part of the next sound is lost
+// while they wake up. A near-silent stream running while the page is open keeps them on. Browsers allow audio
+// only after a click or key press, so it starts on the first one: a preview takes a second or more to render
+// after its click, which is enough time for the wake-up.
+let wakeCtx = null;
+function keepAudioAwake() {
+  try {
+    if (!wakeCtx) {
+      wakeCtx = new AudioContext();
+      const src = wakeCtx.createConstantSource();
+      src.offset.value = 1 / 32768;           // one 16-bit step: inaudible, but not digital silence
+      src.connect(wakeCtx.destination);
+      src.start();
+    }
+    if (wakeCtx.state === 'suspended') wakeCtx.resume().catch(() => {});
+  } catch (e) {}
+}
+for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, keepAudioAwake, {capture: true});
+
 function b64wav(b64) { const s = atob(b64), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return URL.createObjectURL(new Blob([a], {type: 'audio/wav'})); }
 function describe(r) {
   const part = h => Object.entries(r[h].mix).map(([n, w]) => `${n} ${w}`).join(' + ') +
