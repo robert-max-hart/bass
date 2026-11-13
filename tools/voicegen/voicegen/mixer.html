@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voicegen Mixer</title>
+<style>
+/* Layout: a mixing desk. Two channel strips (timbre | delivery) side by side, the monitor (preview, takes,
+   variations, save) in a column beside them; strips stack on narrow screens. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --line: #d9dce4; --fg: #1d2230; --muted: #646b7d;
+  --accent: #3a5bd9; --accent-soft: #e3e9fb; --warn: #b4521e; --ok: #2f7d4f;
+  --timbre: #3a5bd9; --delivery: #9a4bc2;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14161c; --panel: #1c1f27; --line: #30343f; --fg: #e3e6ee; --muted: #9097a8;
+  --accent: #7f9bff; --accent-soft: #263055; --warn: #f0925a; --ok: #6cc690;
+  --timbre: #7f9bff; --delivery: #cc8cf0; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #14161c; --panel: #1c1f27; --line: #30343f; --fg: #e3e6ee; --muted: #9097a8;
+  --accent: #7f9bff; --accent-soft: #263055; --warn: #f0925a; --ok: #6cc690;
+  --timbre: #7f9bff; --delivery: #cc8cf0; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font);
+  padding-block: 16px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em }
+h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted) }
+h3 { font-size: 12px; margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600 }
+button, select, input, textarea { font: inherit; color: inherit }
+button { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px; cursor: pointer }
+button:hover { border-color: var(--accent) }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 600 }
+button.small { padding: 2px 8px; font-size: 12px }
+button:disabled { opacity: 0.5; cursor: progress }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+select, input[type=text], input[type=number], textarea { background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 8px; min-width: 0 }
+textarea { width: 100%; resize: vertical }
+input[type=range] { width: 100%; accent-color: var(--accent); min-width: 0 }
+.top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 14px }
+.top .grow { flex: 1 }
+.status { color: var(--muted); font-size: 13px }
+.status.err { color: var(--warn) }
+.desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr); gap: 14px; align-items: start }
+@media (max-width: 1100px) { .desk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) } .monitor { grid-column: 1 / -1 } }
+@media (max-width: 720px) { .desk { grid-template-columns: minmax(0, 1fr) } }
+.strip, .box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0 }
+.strip { border-top: 3px solid var(--c) }
+.strip.timbre { --c: var(--timbre) } .strip.delivery { --c: var(--delivery) }
+.strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap }
+.strip-head h2 { color: var(--c) }
+.hint { color: var(--muted); font-size: 12px }
+.mixrow { display: grid; grid-template-columns: minmax(70px, 9em) minmax(0, 1fr) 4.2em 3.2em auto; gap: 6px; align-items: center }
+.mixrow .name { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.mixrow input[type=number] { width: 100%; padding: 2px 4px; font-variant-numeric: tabular-nums }
+.pct { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); font-size: 12px }
+.pct.neg { color: var(--warn) }
+.addrow { display: flex; gap: 6px }
+.addrow select { flex: 1 }
+.axrow { display: grid; grid-template-columns: 5.6em 4.6em minmax(0, 1fr) 4.6em 3em; gap: 6px; align-items: center; font-size: 12px }
+.axrow .lbl { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.axrow .end { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.axrow .end.hi { text-align: right }
+.axrow .val { font-variant-numeric: tabular-nums; text-align: right; cursor: pointer }
+.axrow .val.on { color: var(--c); font-weight: 600 }
+.track { position: relative; display: flex; align-items: center; min-width: 0 }
+.track .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--fg); opacity: 0.45;
+  transform: translateX(-1px); pointer-events: none }
+.strip input[type=range] { accent-color: var(--c) }
+.btnrow { display: flex; gap: 6px; flex-wrap: wrap }
+.monitor { display: flex; flex-direction: column; gap: 14px; min-width: 0 }
+.field { display: flex; flex-direction: column; gap: 4px }
+.field label, .lab { font-size: 12px; color: var(--muted) }
+.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.inline > .grow { flex: 1; min-width: 8em }
+.takes { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow: auto }
+.take { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 6px; font-size: 12px }
+.take:hover { background: var(--accent-soft) }
+.take .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.take .meta { color: var(--muted); font-variant-numeric: tabular-nums }
+.vgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+@media (max-width: 480px) { .vgrid { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.vcard { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; font-size: 12px }
+.vcard.busy { opacity: 0.55 }
+.vcard b { font-variant-numeric: tabular-nums }
+pre.recipe { font: 11px/1.4 var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 0; overflow: auto; max-height: 260px }
+.confirm { background: var(--accent-soft); border-radius: 6px; padding: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.warnline { color: var(--warn); font-size: 12px }
+details summary { cursor: pointer; color: var(--muted); font-size: 12px }
+kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>Voicegen Mixer</h1>
+  <div class="inline">
+    <label class="lab" for="loadSel">Start from</label>
+    <select id="loadSel"></select>
+    <button id="loadBtn">Load</button>
+  </div>
+  <div class="grow status" id="status">Loading…</div>
+</div>
+
+<div class="desk">
+  <section class="strip timbre" id="strip-timbre"></section>
+  <section class="strip delivery" id="strip-delivery"></section>
+
+  <div class="monitor">
+    <section class="box">
+      <h2>Preview</h2>
+      <div class="field" id="lineField" hidden>
+        <label for="lineSel">Line from the script</label>
+        <select id="lineSel"></select>
+      </div>
+      <div class="field">
+        <label for="text">Text <span class="hint">(word marks work: [eyes](+))</span></label>
+        <textarea id="text" rows="2">Now... Julia... close your eyes. That's right, just let them rest.</textarea>
+      </div>
+      <div class="inline">
+        <div class="field grow"><label for="dir">Direction</label><input id="dir" type="text" placeholder="e.g. trance 0.6, internal"></div>
+        <div class="field"><label for="seed">Take</label><input id="seed" type="number" value="0" style="width:5em"></div>
+      </div>
+      <div class="inline">
+        <button class="primary" id="playBtn">Play this voice</button>
+        <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+      </div>
+      <div class="inline">
+        <label class="lab" for="cmpSel">Compare with</label>
+        <select id="cmpSel" class="grow"></select>
+        <button id="cmpBtn">Play</button>
+      </div>
+      <audio id="player" controls style="width:100%"></audio>
+      <div class="warnline" id="warn"></div>
+      <h3>Takes</h3>
+      <div class="takes" id="takes"><div class="hint">Every preview lands here. Click one to hear it again, or restore its settings.</div></div>
+    </section>
+
+    <section class="box">
+      <h2>Variations</h2>
+      <div class="hint">Nudges the current voice in random directions along the principal axes. Listen, keep the best, repeat with a smaller step.</div>
+      <div class="inline">
+        <label class="lab"><input type="checkbox" id="vT" checked> timbre</label>
+        <label class="lab"><input type="checkbox" id="vD"> delivery</label>
+        <label class="lab" for="vStep">step</label>
+        <input type="range" id="vStep" min="0.1" max="1.5" step="0.05" value="0.5" style="width:8em">
+        <span id="vStepVal" class="hint">0.50</span>
+      </div>
+      <button id="varBtn">Try 6 variations</button>
+      <div class="vgrid" id="vgrid"></div>
+    </section>
+
+    <section class="box">
+      <h2>Save</h2>
+      <div class="hint" id="saveDir"></div>
+      <div class="inline">
+        <input type="text" id="saveName" class="grow" placeholder="name, e.g. julia_v2">
+        <button class="primary" id="saveBtn">Save .pt</button>
+      </div>
+      <div id="saveMsg"></div>
+      <details>
+        <summary>Recipe</summary>
+        <pre class="recipe" id="recipeView"></pre>
+      </details>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const HALVES = ['timbre', 'delivery'];
+let info = null;
+let recipe = blank();
+let lastPos = null;
+let takeN = 0;
+
+function blank() { return {voicegen_recipe: 1, timbre: {mix: {}, axes: {}}, delivery: {mix: {}, axes: {}}}; }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function status(msg, err) { const s = $('#status'); s.textContent = msg; s.classList.toggle('err', !!err); }
+
+async function api(path, body) {
+  const r = await fetch(path, {method: body ? 'POST' : 'GET', headers: {'Content-Type': 'application/json'},
+                                body: body ? JSON.stringify(body) : undefined});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+function allSources() {
+  return [...info.sources.stock.map(n => ({id: n, label: n, group: 'Stock'})),
+          ...Object.keys(info.sources.user).map(n => ({id: n, label: n, group: 'Your voices'}))];
+}
+function fillSourceSelect(sel, keep) {
+  const v = keep ? sel.value : null;
+  sel.innerHTML = '';
+  for (const g of ['Your voices', 'Stock']) {
+    const og = document.createElement('optgroup'); og.label = g;
+    for (const s of allSources().filter(s => s.group === g)) og.append(new Option(s.label, s.id));
+    sel.append(og);
+  }
+  if (v) sel.value = v;
+}
+
+// ------------------------------------------------------------------ strips
+function buildStrip(half) {
+  const el = $('#strip-' + half);
+  const other = half === 'timbre' ? 'delivery' : 'timbre';
+  el.innerHTML = `
+    <div class="strip-head"><h2>${half}</h2>
+      <span class="hint">${half === 'timbre' ? 'what the voice sounds like' : 'intonation, pacing, energy'}</span></div>
+    <h3>Blend</h3>
+    <div class="mix"></div>
+    <div class="addrow"><select id="add-${half}"></select><button class="small" data-add>Add</button></div>
+    <div class="btnrow"><button class="small" data-copy>Copy blend from ${other}</button></div>
+    <h3>Adjust <span class="hint" style="text-transform:none;letter-spacing:0">(± in stock-voice standard deviations; mark = where the voice sits now)</span></h3>
+    <div class="axes"></div>
+    <div class="btnrow"><button class="small" data-reset>Reset adjustments</button></div>`;
+  fillSourceSelect(el.querySelector('select'));
+  el.querySelector('[data-add]').onclick = () => {
+    const n = el.querySelector('select').value;
+    if (!(n in recipe[half].mix)) recipe[half].mix[n] = Object.keys(recipe[half].mix).length ? 0.25 : 1;
+    changed();
+  };
+  el.querySelector('[data-copy]').onclick = () => { recipe[half].mix = clone(recipe[other].mix); changed(); };
+  el.querySelector('[data-reset]').onclick = () => { recipe[half].axes = {}; changed(); };
+  const ax = el.querySelector('.axes');
+  for (const a of info.axes[half]) {
+    const row = document.createElement('div'); row.className = 'axrow';
+    row.innerHTML = `<span class="lbl" title="${a.label}">${a.label}</span><span class="end">${a.lo}</span>
+      <span class="track"><input type="range" min="-3" max="3" step="0.05" value="0" id="ax-${half}-${a.id}" aria-label="${half} ${a.label}"><i class="tick"></i></span>
+      <span class="end hi">${a.hi}</span><span class="val" title="click to reset">0.00</span>`;
+    const r = row.querySelector('input[type=range]'), v = row.querySelector('.val');
+    r.oninput = () => { recipe[half].axes[a.id] = +r.value; v.textContent = (+r.value).toFixed(2); v.classList.toggle('on', +r.value !== 0); changedSoft(); };
+    r.onchange = () => changed();
+    v.onclick = () => { delete recipe[half].axes[a.id]; changed(); };
+    ax.append(row);
+  }
+}
+
+function renderMix(half) {
+  const box = $('#strip-' + half + ' .mix');
+  const mix = recipe[half].mix; const tot = Object.values(mix).reduce((a, b) => a + b, 0);
+  box.innerHTML = '';
+  if (!Object.keys(mix).length) box.innerHTML = '<div class="hint">Add a voice below.</div>';
+  for (const [n, w] of Object.entries(mix)) {
+    const row = document.createElement('div'); row.className = 'mixrow';
+    const pct = Math.abs(tot) > 1e-6 ? w / tot * 100 : 0;
+    row.innerHTML = `<span class="name" title="${n}">${n}</span>
+      <input type="range" min="-1" max="2" step="0.01" value="${w}" aria-label="${half} weight ${n}">
+      <input type="number" min="-5" max="5" step="0.01" value="${+w.toFixed(3)}" aria-label="${half} weight ${n}">
+      <span class="pct ${pct < 0 ? 'neg' : ''}">${pct.toFixed(0)}%</span>
+      <button class="small" title="remove">×</button>`;
+    const [r, num] = row.querySelectorAll('input');
+    r.oninput = () => { mix[n] = +r.value; num.value = r.value; updatePct(half); changedSoft(); };
+    r.onchange = () => changed();
+    num.onchange = () => { mix[n] = +num.value; changed(); };
+    row.querySelector('button').onclick = () => { delete mix[n]; changed(); };
+    box.append(row);
+  }
+}
+function updatePct(half) {
+  const mix = recipe[half].mix; const tot = Object.values(mix).reduce((a, b) => a + b, 0);
+  $('#strip-' + half).querySelectorAll('.mixrow').forEach((row, i) => {
+    const w = Object.values(mix)[i]; const p = Math.abs(tot) > 1e-6 ? w / tot * 100 : 0;
+    const el = row.querySelector('.pct'); el.textContent = p.toFixed(0) + '%'; el.classList.toggle('neg', p < 0);
+  });
+}
+function syncAxes(half) {
+  for (const a of info.axes[half]) {
+    const r = $(`#ax-${half}-${a.id}`); const v = r.closest('.axrow').querySelector('.val');
+    const x = recipe[half].axes[a.id] || 0; r.value = x; v.textContent = x.toFixed(2); v.classList.toggle('on', x !== 0);
+    const tick = r.parentElement.querySelector('.tick');
+    const p = lastPos && lastPos[half] ? lastPos[half][a.id] : null;
+    tick.hidden = p == null; if (p != null) tick.style.left = `calc(8px + (100% - 16px) * ${(Math.max(-3, Math.min(3, p)) + 3) / 6})`;
+    tick.title = p != null ? `this voice: ${p.toFixed(2)}` : '';
+  }
+}
+function syncAll() { for (const h of HALVES) { renderMix(h); syncAxes(h); } $('#recipeView').textContent = JSON.stringify(recipe, null, 2); }
+function changedSoft() { $('#recipeView').textContent = JSON.stringify(recipe, null, 2); }
+let posTimer = null;
+function changed() {
+  syncAll();
+  clearTimeout(posTimer);
+  posTimer = setTimeout(async () => {
+    try { if (valid(recipe)) { lastPos = (await api('/api/position', {recipe})).position; for (const h of HALVES) syncAxes(h); } } catch (e) {}
+  }, 250);
+}
+function valid(r) { return HALVES.every(h => Math.abs(Object.values(r[h].mix).reduce((a, b) => a + b, 0)) > 1e-6); }
+
+// ------------------------------------------------------------------ preview
+function b64wav(b64) { const s = atob(b64), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return URL.createObjectURL(new Blob([a], {type: 'audio/wav'})); }
+function describe(r) {
+  const part = h => Object.entries(r[h].mix).map(([n, w]) => `${n} ${w}`).join(' + ') +
+    Object.entries(r[h].axes).filter(([, v]) => v).map(([k, v]) => ` ${k}${v > 0 ? '+' : ''}${v}`).join('');
+  return JSON.stringify(r.timbre.mix) === JSON.stringify(r.delivery.mix) && !Object.keys(r.delivery.axes).length && !Object.keys(r.timbre.axes).length
+    ? part('timbre') : `T: ${part('timbre')} | D: ${part('delivery')}`;
+}
+async function render(r, label, autoplay = true) {
+  if (!valid(r)) throw new Error('Each half needs voices whose weights don\'t add up to 0.');
+  const res = await api('/api/render', {recipe: r, text: $('#text').value, direction: $('#dir').value, seed: +$('#seed').value});
+  const url = b64wav(res.audio);
+  $('#warn').textContent = res.warnings.join(' · ');
+  addTake(url, label || describe(r), r, res);
+  if (autoplay) { const p = $('#player'); p.src = url; p.play().catch(() => {}); }
+  return {url, res};
+}
+function addTake(url, label, r, res) {
+  const box = $('#takes'); if (!takeN) box.innerHTML = '';
+  takeN++;
+  const row = document.createElement('div'); row.className = 'take';
+  row.innerHTML = `<button class="small">▶</button><span class="what" title="">${takeN}. ${label}</span>
+    <span class="meta">${res.seconds}s <button class="small">Restore</button></span>`;
+  row.querySelector('.what').title = label + '\n' + $('#text').value + ($('#dir').value ? '  {' + $('#dir').value + '}' : '');
+  const [play, restore] = row.querySelectorAll('button');
+  play.onclick = () => { const p = $('#player'); p.src = url; p.play().catch(() => {}); };
+  restore.onclick = () => { recipe = clone(r); changed(); status(`Restored take ${label}`); };
+  box.prepend(row);
+  while (box.children.length > 30) box.lastChild.remove();
+}
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } catch (e) { status(e.message, true); } finally { btn.disabled = false; }
+}
+$('#playBtn').onclick = () => busy($('#playBtn'), async () => {
+  status('Rendering…'); const {res} = await render(clone(recipe)); status(`Rendered in ${res.took}s`);
+});
+$('#cmpBtn').onclick = () => busy($('#cmpBtn'), async () => {
+  const n = $('#cmpSel').value; status('Rendering ' + n + '…');
+  const r = blank(); r.timbre.mix[n] = 1; r.delivery.mix[n] = 1;
+  const {res} = await render(r, n + ' (as is)'); status(`Rendered in ${res.took}s`);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('#playBtn').click(); } });
+
+// ------------------------------------------------------------------ variations
+$('#vStep').oninput = () => $('#vStepVal').textContent = (+$('#vStep').value).toFixed(2);
+$('#varBtn').onclick = () => busy($('#varBtn'), async () => {
+  const halves = [...($('#vT').checked ? ['timbre'] : []), ...($('#vD').checked ? ['delivery'] : [])];
+  if (!halves.length) throw new Error('Tick timbre, delivery or both.');
+  if (!valid(recipe)) throw new Error('Set up a blend first.');
+  const base = clone(recipe);
+  const {recipes} = await api('/api/variants', {recipe: base, n: 6, step: +$('#vStep').value, halves});
+  const grid = $('#vgrid'); grid.innerHTML = '';
+  const cards = recipes.map((r, i) => {
+    const c = document.createElement('div'); c.className = 'vcard busy';
+    c.innerHTML = `<b>${String.fromCharCode(65 + i)}</b><button class="small" disabled>▶ Play</button><button class="small" disabled>Keep</button>`;
+    grid.append(c); return c;
+  });
+  for (let i = 0; i < recipes.length; i++) {
+    status(`Rendering variation ${String.fromCharCode(65 + i)} of ${recipes.length}…`);
+    const {url} = await render(recipes[i], `variation ${String.fromCharCode(65 + i)}`, false);
+    const c = cards[i]; c.classList.remove('busy');
+    const [play, keep] = c.querySelectorAll('button'); play.disabled = keep.disabled = false;
+    play.onclick = () => { const p = $('#player'); p.src = url; p.play().catch(() => {}); };
+    keep.onclick = () => { recipe = clone(recipes[i]); changed(); status(`Kept variation ${String.fromCharCode(65 + i)}. Try again for more around it.`); };
+    if (i === 0) play.click();
+  }
+  status('Variations ready: play them, then Keep one.');
+});
+
+// ------------------------------------------------------------------ load / save
+$('#loadBtn').onclick = () => busy($('#loadBtn'), async () => {
+  const n = $('#loadSel').value; status('Loading ' + n + '…');
+  const res = await api('/api/load', {source: n});
+  recipe = res.recipe; for (const h of HALVES) recipe[h].axes = recipe[h].axes || {};
+  if (info.sources.user[n]) $('#saveName').value = n;
+  changed(); status(`Loaded ${n}: ${res.how}.`);
+});
+async function save(overwrite) {
+  const res = await api('/api/save', {recipe, name: $('#saveName').value, overwrite});
+  const msg = $('#saveMsg');
+  if (res.exists) {
+    msg.innerHTML = `<div class="confirm"><span>${res.path} exists. Replace it? The old file is kept as a .bak.</span>
+      <button class="small primary" id="ovYes">Replace</button><button class="small" id="ovNo">Cancel</button></div>`;
+    $('#ovYes').onclick = () => busy($('#ovYes'), () => save(true));
+    $('#ovNo').onclick = () => msg.innerHTML = '';
+    return;
+  }
+  msg.innerHTML = `<div class="hint" style="color:var(--ok)">Saved ${res.path} and its recipe${res.backup ? `; old file kept as ${res.backup}` : ''}.</div>`;
+  info.sources = res.sources;
+  for (const s of ['#loadSel', '#cmpSel', '#add-timbre', '#add-delivery']) fillSourceSelect($(s), true);
+}
+$('#saveBtn').onclick = () => busy($('#saveBtn'), async () => {
+  if (!valid(recipe)) throw new Error('Set up a blend first.');
+  await save(false);
+});
+
+// ------------------------------------------------------------------ start
+(async () => {
+  try {
+    info = await api('/api/info');
+    fillSourceSelect($('#loadSel')); fillSourceSelect($('#cmpSel'));
+    for (const h of HALVES) buildStrip(h);
+    $('#saveDir').textContent = info.save_dir ? 'Saves to ' + info.save_dir : 'No save folder (start with --voices-dir or --save-dir).';
+    if (info.lines.length) {
+      $('#lineField').hidden = false;
+      const sel = $('#lineSel'); sel.append(new Option('(type your own)', ''));
+      info.lines.forEach((l, i) => sel.append(new Option(`${l.id}  ${l.speaker}: ${l.text.slice(0, 60)}`, i)));
+      sel.onchange = () => { const l = info.lines[sel.value]; if (l) { $('#text').value = l.text; $('#dir').value = l.direction; } };
+    }
+    const first = Object.keys(info.sources.user)[0];
+    if (first) { $('#loadSel').value = first; $('#cmpSel').value = first; $('#loadBtn').click(); }
+    else { recipe.timbre.mix.af_heart = 1; recipe.delivery.mix.af_heart = 1; changed(); status('Ready.'); }
+  } catch (e) { status('Could not reach the mixer: ' + e.message, true); }
+})();
+</script>
+</body>
+</html>

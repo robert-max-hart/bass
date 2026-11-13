@@ -52,9 +52,11 @@ Rules that come from the split:
 
 So the code lives in bass, and the kokoro folder only provides the Python environment: run the tool with
 `~/venv/kokoro/bin/python -I tools/voice_lines.py …`. The old scripts in `~/venv/kokoro`
-(`reader.py`, `weaver.py`, `scripts/`, `output/`) are retired. `voice_lab.py` is still the way to design a
-*new* voice. The blend recipes of the existing voices were never recorded, so write them down if they are
-remembered, and keep the `.pt` files backed up.
+(`reader.py`, `weaver.py`, `scripts/`, `output/`) are retired. New voices are designed with `voicegen mixer`
+(replaces `voice_lab.py`; see `tools/voicegen/README.md`). The existing voices' recipes were recovered exactly
+on 2026-11-12 and saved as `stories/voices/<name>.recipe.json` (same blend for timbre and delivery):
+julia = af_aoede 0.5 + jf_tebukuro 0.3 + af_jessica 0.2; harris = jf_gongitsune 0.4 + bm_lewis 0.3 +
+af_nicole 0.3; base_narrator = af_nicole 0.65 + bm_fable 0.3 + bf_lily 0.05. Keep the `.pt` files backed up.
 
 ## 2. Audio format: Ogg Opus
 

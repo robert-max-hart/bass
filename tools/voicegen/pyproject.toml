@@ -22,3 +22,6 @@ voicegen = "voicegen.cli:main"
 
 [tool.setuptools]
 packages = ["voicegen"]
+
+[tool.setuptools.package-data]
+voicegen = ["mixer.html"]

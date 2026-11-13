@@ -1,7 +1,8 @@
 """Small helpers with no heavy imports (safe for script parsing and adapters)."""
 import hashlib
 
-STOCK_PREFIXES = ('af_', 'am_', 'bf_', 'bm_')
+# Kokoro stock voices: <language><f|m>_name (a = US, b = UK, e, f, h, i, j, p, z)
+STOCK_PREFIXES = tuple(f'{l}{g}_' for l in 'abefhijpz' for g in 'fm')
 
 
 def make_seed(*parts):

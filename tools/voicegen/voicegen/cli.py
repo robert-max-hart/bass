@@ -4,6 +4,9 @@
     voicegen preview --script voice_script.txt --line c1.e174 -o x.ogg
     voicegen check voice_script.txt
     voicegen render voice_script.txt --out voice/ [--dry-run] [--only "c1.e1*"] [--prune]
+    voicegen mixer --voices-dir voices/ [--script voice_script.txt]     blend and tune voices in the browser
+    voicegen voice recipe voices/julia.pt          print (and with --write, save) the stock blend it is made of
+    voicegen voice build voices/julia.recipe.json  rebuild a .pt from its recipe
 """
 import argparse
 import sys
@@ -87,6 +90,39 @@ def cmd_render(a):
     print(f'clips: {out}')
 
 
+def cmd_mixer(a):
+    from .mixer import Mixer, serve
+    dirs = a.voices_dir or []
+    m = Mixer(dirs, a.save_dir or (dirs[0] if dirs else None), a.script, a.model_dir)
+    serve(m, a.port, not a.no_browser)
+
+
+def cmd_voice(a):
+    import json
+    from .engine import Engine
+    from . import voicelab
+    lab = voicelab.Lab(Engine(model_dir=a.model_dir))
+    if a.action == 'recipe':
+        r, fits = lab.decompose(a.file)
+        print(json.dumps(voicelab.clean(r), indent=2))
+        for h, f in fits.items():
+            print(f'  {h}: ' + ('exact stock blend' if f < 1e-4 else f'not a stock blend (closest misses by {f:.0%})'))
+        if a.write:
+            out = voicelab.recipe_path(a.file)
+            if out.exists() and not a.force:
+                sys.exit(f'voicegen: {out} exists (use --force to replace it)')
+            out.write_text(json.dumps(voicelab.clean(r), indent=2) + '\n', encoding='utf-8')
+            print(f'wrote {out}')
+    else:
+        src = Path(a.file)
+        out = Path(a.output) if a.output else src.with_name(src.name.replace('.recipe.json', '') + '.pt')
+        if out.exists() and not a.force:
+            sys.exit(f'voicegen: {out} exists (use -o for another name, or --force)')
+        pack = lab.build(voicelab.load_recipe(src), base=src.parent)
+        lab.torch.save(pack, str(out))
+        print(f'wrote {out}')
+
+
 def main(argv=None):
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')     # Windows consoles default to a legacy code page
@@ -122,6 +158,20 @@ def main(argv=None):
     rd.add_argument('--prune', action='store_true', help='delete clips no line uses any more')
     rd.add_argument('--keep-going', action='store_true', help='render the good lines even if some have errors')
     rd.set_defaults(func=cmd_render)
+    mx = sub.add_parser('mixer', help='blend and tune voices in the browser')
+    mx.add_argument('--voices-dir', action='append', help='a folder of your .pt voices (repeatable)')
+    mx.add_argument('--save-dir', help='where Save writes (default: the first --voices-dir)')
+    mx.add_argument('--script', help='a voice script whose lines can be picked as test text')
+    mx.add_argument('--port', type=int, default=8765)
+    mx.add_argument('--no-browser', action='store_true')
+    mx.set_defaults(func=cmd_mixer)
+    vo = sub.add_parser('voice', help='voice recipes: recover one from a .pt, or build a .pt from one')
+    vo.add_argument('action', choices=('recipe', 'build'))
+    vo.add_argument('file', help='recipe: a .pt file; build: a .recipe.json file')
+    vo.add_argument('-o', '--output', help='build: the .pt to write (default: next to the recipe)')
+    vo.add_argument('--write', action='store_true', help='recipe: save it as <name>.recipe.json next to the .pt')
+    vo.add_argument('--force', action='store_true', help='replace an existing output file')
+    vo.set_defaults(func=cmd_voice)
     a = p.parse_args(argv)
     try:
         a.func(a)
