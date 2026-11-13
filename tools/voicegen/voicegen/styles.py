@@ -46,15 +46,19 @@ STRESS = {1: dict(over=1.5, pitch=1.5, fall=2.0, gain=2.0, dur=1.15),
           -1: dict(pitch=-1.0, dur=0.9, gain=-1.5)}
 STRESS_MAX = 6.0
 STRETCH = {1: 1.5, 2: 2.0}
-# Levels 3-5 (+++ to +++++, ~~~ to ~~~~~), for when ++ / ~~ isn't enough. Untuned by ear: they may sound bad.
+# Levels 3-5 (+++ to +++++, ~~~ to ~~~~~) and de-stress -- / ---, for when ++ / ~~ / - isn't enough. Untuned by ear: they may sound bad.
 # Each also raises its own limit (stress `max` instead of STRESS_MAX; stretch `cap` instead of STRETCH_CAP),
 # or the limits would flatten them into level 2. Kept apart from STRESS / STRETCH so that only lines using
 # them depend on them (render.tuning): adding or tuning a level here doesn't rebuild every marked line.
 STRESS_MORE = {3: dict(over=3.0, pitch=3.0, fall=5.0, gain=4.0, dur=1.35, max=7.5),
                4: dict(over=4.0, pitch=4.0, fall=6.0, gain=5.0, dur=1.45, max=9.0),
-               5: dict(over=5.0, pitch=5.0, fall=7.0, gain=6.0, dur=1.55, max=10.5)}
+               5: dict(over=5.0, pitch=5.0, fall=7.0, gain=6.0, dur=1.55, max=10.5),
+               # -- and ---: stops at 3, as past ~20% shorter Kokoro swallows sounds and quieter words get lost
+               -2: dict(pitch=-2.0, dur=0.85, gain=-3.0),
+               -3: dict(pitch=-3.0, dur=0.8, gain=-4.5)}
 STRETCH_MORE = {3: dict(factor=2.5, cap=0.5), 4: dict(factor=3.0, cap=0.65), 5: dict(factor=3.5, cap=0.8)}
 MARK_LEVELS = 5         # most + or ~ a mark may stack
+DESTRESS_LEVELS = 3     # most - a mark may stack
 
 
 def word_edit(stress, stretch):

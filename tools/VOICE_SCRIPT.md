@@ -95,7 +95,8 @@ line's own. A later style replaces an earlier one, settings replace earlier sett
 |---|---|
 | `[word](+)` | stress: a pitch lift that eases down across the word, a little louder and longer |
 | `[word](++)` | strong stress |
-| `[word](-)` | de-stress |
+| `[word](-)` | de-stress: lower, quieter and a little shorter |
+| `[word](--)`, `[word](---)` | stronger de-stress (three is the limit: shorter still and Kokoro starts swallowing sounds) |
 | `[word](~)`, `[word](~~)` | drawn out, very drawn out |
 | `[word](+++)` … `(+++++)`, `(~~~)` … `(~~~~~)` | more of the same: up to five of each stack (they combine too, `(+++~~~)`). Levels 3-5 are untuned extremes that may distort; each lifts the pitch more, louder and longer, and allows a bigger lift and longer sounds than levels 1-2 |
 | `[word](+~)` | marks combine |
