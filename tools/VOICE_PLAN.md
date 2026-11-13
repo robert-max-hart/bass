@@ -1,6 +1,6 @@
 # Voice lines: plan
 
-Status (2026-11-12): **steps 1–4 done; step 5 (direct + build chapter 1) next**. The script format as built is documented in `tools/VOICE_SCRIPT.md` (it supersedes the sketch in section 4); the standalone/bass split is in section 0. Tone-control research is done and approved. The reference
+Status (2026-11-12): **steps 1–4 done; step 5 in progress**: chapter 1 has a suggested direction pass and is fully built; the user is auditing the clips by ear. The script format as built is documented in `tools/VOICE_SCRIPT.md` (it supersedes the sketch in section 4); the standalone/bass split is in section 0. Tone-control research is done and approved. The reference
 engine is `tools/voice_prototype.py`. Reference clips are in `stories/voices/reference/`; rebuild them with
 `~/venv/kokoro/bin/python -I tools/voice_prototype.py stories/voices/reference`.
 

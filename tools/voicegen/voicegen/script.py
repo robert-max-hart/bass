@@ -6,6 +6,7 @@
     @cast Doctor Harris = harris | ???         ... | aliases
     @cast Julia (thought) = julia {internal}   ... {a default direction for this speaker}
     @defaults speed 0.95, human 1.0            direction for every line
+    @pronounce Julia = /ʤˈulʲə/                 say this word this way wherever it isn't marked otherwise
 
     == Chapter 1 ==                            a section heading (for reading only)
     c1.e3    Julia (thought): But what if they do find something [wrong](+)?
@@ -90,6 +91,7 @@ class Script:
         self.aliases = {}
         self.defaults = ''
         self.voices = None
+        self.pronounce = {}     # word -> '/ipa/'
         self.errors = []        # (lineno, message)
 
     # ------------------------------------------------------------------ reading
@@ -157,6 +159,12 @@ class Script:
             self.voices = rest
         elif word == '@defaults':
             self.defaults = rest.strip('{} ')
+        elif word == '@pronounce':
+            w, eq, ipa = rest.partition('=')
+            w, ipa = w.strip(), ipa.strip()
+            if not eq or not w or not (ipa.startswith('/') and ipa.endswith('/') and len(ipa) > 2):
+                self.errors.append((n, '@pronounce needs "word = /ipa/"')); return
+            self.pronounce[w] = ipa
         elif word == '@cast':
             name, eq, val = rest.partition('=')
             if not eq or not name.strip() or not val.strip():
@@ -241,7 +249,8 @@ class Script:
                 errors.append((ln.lineno, str(e))); continue
             key = (who, mt.plain)
             occ = occurrences.get(key, 0); occurrences[key] = occ + 1
-            jobs.append(Job(ln.id, who, self.voice_path(self.cast[who].voice, voices_dir), d, ln.text,
+            jobs.append(Job(ln.id, who, self.voice_path(self.cast[who].voice, voices_dir), d,
+                            marks_mod.apply_pronounce(ln.text, self.pronounce),
                             make_seed(who, mt.plain, occ), ln.lineno))
         return jobs, errors
 

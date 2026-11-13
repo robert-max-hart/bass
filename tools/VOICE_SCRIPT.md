@@ -49,6 +49,7 @@ c1.e174  Doctor Harris {pause 2.2}: Now... Julia... close your [eyes](+~)...
 | `@cast Name = voice \| alias \| alias` | other names for the same speaker (`???` → Doctor Harris) |
 | `@cast Name = voice {direction}` | a default direction for everything this speaker says |
 | `@defaults direction` | a default direction for every line |
+| `@pronounce Julia = /ʤˈuljə/` | say this word this way in every line, unless that occurrence already has a mark (a mark holds either a stress or a respelling). Possessives ("Julia’s") aren't touched |
 
 **To change a voice**, replace its `.pt` file or point the `@cast` line at a new one. A rebuild then
 redoes that speaker's lines.
@@ -63,34 +64,36 @@ A direction is a comma-separated list: at most one **style**, any **effects**, a
 | `trance 0.6` | slower, lower and flatter, with longer pauses. Depth 0 is light, 1 is deepest |
 | `deep` | dead-flat, slow monotone, for very deep trance and mantras |
 | `shout` | higher and livelier |
-| `soft` | quiet and gentle (placeholder quality) |
+| `soft` | quiet and gentle: the speaker's own voice, a little lower, with a trace of whisper mixed in (`breath 0.15`) |
 | `whisper` | breathy whisper, modelled on a real one |
 
 | Effect | Sound |
 |---|---|
-| `internal` | a soft echo, for thoughts |
+| `internal` | a light echo, for thoughts |
 
 | Setting | Meaning | Default |
 |---|---|---|
 | `speed 0.9` | the speaker's base speed; a style scales it | 0.95 |
 | `pitch 2` | semitones up (negative = down), added to the style's | 0 |
 | `range 0.5` | pitch movement: 0 = flat, 1 = natural, above 1 = livelier | from style |
-| `pause 2` | multiplies the length of pauses at punctuation | from style |
+| `pause 2` | multiplies the pauses at punctuation inside a line (comma ≈ 0.18 s, `;` `:` dash ≈ 0.28 s, sentence end ≈ 0.42 s, `…` ≈ 0.55 s at `pause 1`) | from style |
 | `drift 1` | semitones of slow fall across the line | from style |
 | `volume -3` | dB, added to the style's level | 0 |
 | `human 0.5` | natural variation in timing and pitch: 0 = none, 1 = default | 1.0 |
 | `take 2` | a different variation of the same line; try takes until one sounds right | 0 |
 | `floor 0.55` | ends voicing cleanly when pitch sags (cures growl at line ends) | from style |
-| `rise 5` | semitones of question rise on the word before each `?`: level at first, then sharp. Kokoro says short questions like statements; one-word questions ("Julia?") get `rise 5` automatically, `rise 0` turns it off | 0 (5 on one-word questions) |
+| `rise 5` | semitones of question rise on the word before each `?`: level at first, then sharp. Kokoro says questions like statements, so they rise automatically: one-word questions ("Julia?", "Twenty?") by 5, longer ones by 3, except when a clause starts with who/what/when/where/why/how/which (those fall). Setting `rise` applies it to every question in the line; `rise 0` turns it off | auto |
+| `breath 0.5` | mixes the speaker's own whisper into the voice: 0 = none, 1 = all whisper. Not for `whisper` itself | 0 (`soft`: 0.15) |
 
 Directions combine in this order: `@defaults`, then the speaker's `@cast` direction, then a ramp, then the
-line's own. A later style replaces an earlier one, settings replace earlier settings, and effects add up.
+line's own. A later style replaces an earlier one, settings replace earlier settings (except `pitch` and
+`volume`, which add up, so `@cast Doctor Harris = harris {pitch 1}` shifts every Harris line), and effects add up.
 
 ## Word marks
 
 | Mark | Effect |
 |---|---|
-| `[word](+)` | stress |
+| `[word](+)` | stress: a pitch lift that eases down across the word, a little louder and longer |
 | `[word](++)` | strong stress |
 | `[word](-)` | de-stress |
 | `[word](~)`, `[word](~~)` | drawn out, very drawn out |

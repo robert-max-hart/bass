@@ -1,7 +1,7 @@
 """Render a voice script into clips + manifest.json, reusing every clip whose inputs haven't changed.
 
 A clip's cache key covers everything that shapes its sound: the engine version, the voice file's contents,
-the resolved settings, the tuning constants the line actually uses (stress, `internal`, soft, whisper,
+the resolved settings, the tuning constants the line actually uses (stress, `internal`, whisper/breath,
 loudness), the text with its marks, and the seed. Files are named `<id>_<key10>.<ext>`, so a renumbered line
 finds its old clip by key and is renamed instead of re-rendered.
 
@@ -47,17 +47,16 @@ def file_hash(path):
 def tuning(job, settings):
     """the tuning constants this line depends on (so tuning one style only rebuilds the lines using it)"""
     from . import dsp, engine
-    t = {'level': [dsp.LEVEL_TARGET, dsp.PEAK_LIMIT], 'voiced': engine.VOICED_HZ}
+    t = {'level': [dsp.LEVEL_TARGET, dsp.PEAK_LIMIT], 'voiced': engine.VOICED_HZ,
+         'timing': [styles.PAUSES, styles.PAUSE_HUMAN, styles.LENGTH_CAP, styles.PITCH_BRIDGE, styles.QUIET_ENERGY, styles.QUIET_EASE]}
     mt = marks_mod.parse(job.text)
     if mt.marks:
-        t['marks'] = [styles.STRESS, styles.STRETCH]
-    if styles.question_rise(settings, mt.plain):
+        t['marks'] = [styles.STRESS, styles.STRETCH, styles.STRESS_MAX, styles.STRETCH_CAP, styles.SUSTAIN_ENERGY, styles.SUSTAIN_SMOOTH]
+    if any(styles.question_rises(settings, mt.plain)):
         t['question'] = styles.QUESTION
     if 'internal' in settings['effects']:
         t['internal'] = dsp.INTERNAL
-    if settings['style'] == 'soft':
-        t['soft'] = styles.SOFT_DELIVERY
-    if settings['style'] == 'whisper':
+    if settings['style'] == 'whisper' or settings.get('breath'):
         from .whisper_profile import VOWEL, FRIC
         t['whisper'] = [dsp.WHISPER, VOWEL, FRIC]
     return t

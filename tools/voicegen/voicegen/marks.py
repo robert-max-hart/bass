@@ -61,7 +61,25 @@ def parse(text):
         align.append(' ' * len(word) if spec.startswith('=') else word)
         pos = m.end()
     plain.append(text[pos:]); g2p.append(text[pos:]); align.append(text[pos:])
-    return MarkedText(''.join(plain), ''.join(g2p), marks, ''.join(align))
+    # misaki drops a spaced hyphen ("eyes - easy") without a pause; an en/em dash it reads as one
+    spoken = re.sub(r'(?<=\s)-+(?=\s)', '—', ''.join(g2p))
+    return MarkedText(''.join(plain), spoken, marks, ''.join(align))
+
+
+def apply_pronounce(text, table):
+    """respell every unmarked occurrence of each word in table ({word: '/ipa/'}) as [word](/ipa/). Words that
+    already carry a mark keep it as written (a mark holds either a stress or a respelling)."""
+    if not table:
+        return text
+    pat = re.compile(r"(?<![\w'’])(" + '|'.join(re.escape(w) for w in sorted(table, key=len, reverse=True)) +
+                     r")(?![\w'’])")
+    out, pos = [], 0
+    for m in list(MARK_RE.finditer(text)) + [None]:
+        end = m.start() if m else len(text)
+        out.append(pat.sub(lambda w: f'[{w.group(1)}]({table[w.group(1)]})', text[pos:end]))
+        if m:
+            out.append(m.group(0)); pos = m.end()
+    return ''.join(out)
 
 
 def has_marks(text):

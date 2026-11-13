@@ -117,6 +117,14 @@ def deess(y, thresh_db=9.0, ratio=4.0, lo=3500):
     return librosa.istft(Y * 10 ** (-(knee[:, None] * g[None, :]) / 20), hop_length=hop, length=len(y))
 
 
+def breathy(audio, voiced, amount, seed):
+    """partial whisper: the voice mixed with its own whisper (dsp.whisper), matched in ear-weighted loudness.
+    amount: 0 = the voice, 1 = all whisper (constant-power mix)"""
+    w = whisper(audio, voiced, seed)
+    w = w * 10 ** ((aw(audio) - aw(w)) / 20)
+    return (np.sqrt(1 - amount) * audio + np.sqrt(amount) * w).astype(np.float32)
+
+
 def whisper(audio, voiced, seed, p=None):
     """audio: the model's line; voiced: per-sample 0..1 (1 = has F0); p: a dict shaped like WHISPER"""
     from .whisper_profile import VOWEL, FRIC
@@ -186,8 +194,8 @@ def whisper(audio, voiced, seed, p=None):
 #       taps = explicit [(ms, gain), ...] instead of a regular delay
 # room: decay = RT60 (s), wet = share of reverb (0..1), tone = reverb low-pass (Hz), predelay (ms)
 # dry_tone: low-pass on the direct voice (None = untouched)
-INTERNAL = dict(echo=dict(delay=220, feedback=0.25, level=0.22, tone=3200),
-                room=dict(decay=0.9, wet=0.05, tone=3500, predelay=30),
+INTERNAL = dict(echo=dict(delay=220, feedback=0.2, level=0.11, tone=3200),     # 2026-11-12 round 1: echo halved
+                room=dict(decay=0.9, wet=0.03, tone=3500, predelay=30),
                 dry_tone=6500)
 
 
