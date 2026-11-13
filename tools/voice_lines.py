@@ -360,8 +360,16 @@ def build(a):
     stale = [i for i in expected if i not in have or have[i].plain != expected[i].text]
     stale += [i for i in have if i not in expected]
     if stale:
-        print(f'{len(stale)} lines differ between the story and {script_path.name}, e.g. ' + ', '.join(stale[:6]))
-        sys.exit(f'run "voice_lines.py sync {a.story}" first (nothing was built)')
+        print(f'{len(stale)} lines differ between the story and {script_path.name}:')
+        for i in stale[:5]:
+            print(f'  {i}')
+            print(f'    script: {have[i].plain if i in have else "(missing)"}')
+            print(f'    story:  {expected[i].text if i in expected else "(not in the story)"}')
+        if len(stale) > 5:
+            print(f'  ... and {len(stale) - 5} more')
+        print('Marks and {directions} may change freely, but the words and punctuation must match the story.')
+        sys.exit(f'If the story changed, run "voice_lines.py sync {a.story}"; if the script was edited by mistake, '
+                 'fix those lines (nothing was built)')
 
     jobs, errors = sc.jobs()
     if errors:

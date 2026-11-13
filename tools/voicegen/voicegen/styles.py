@@ -45,25 +45,36 @@ STRESS = {1: dict(over=1.5, pitch=1.5, fall=2.0, gain=2.0, dur=1.15),
           2: dict(over=2.0, pitch=2.0, fall=4.0, gain=3.0, dur=1.25),
           -1: dict(pitch=-1.0, dur=0.9, gain=-1.5)}
 STRESS_MAX = 6.0
-STRETCH = {1: 1.5, 2: 2.0}
+STRETCH = {1: 1.25, 2: 1.5}     # 2026-11-13: was 1.5 / 2.0 (too long); every level now adds 0.25 up to ~~~~
 # Levels 3-5 (+++ to +++++, ~~~ to ~~~~~) and de-stress -- / ---, for when ++ / ~~ / - isn't enough. Untuned by ear: they may sound bad.
 # Each also raises its own limit (stress `max` instead of STRESS_MAX; stretch `cap` instead of STRETCH_CAP),
-# or the limits would flatten them into level 2. Kept apart from STRESS / STRETCH so that only lines using
-# them depend on them (render.tuning): adding or tuning a level here doesn't rebuild every marked line.
+# or the limits would flatten them into level 2. A line's clip depends only on the levels it uses
+# (render.tuning), so tuning one level rebuilds only the lines that use it.
 STRESS_MORE = {3: dict(over=3.0, pitch=3.0, fall=5.0, gain=4.0, dur=1.35, max=7.5),
                4: dict(over=4.0, pitch=4.0, fall=6.0, gain=5.0, dur=1.45, max=9.0),
                5: dict(over=5.0, pitch=5.0, fall=7.0, gain=6.0, dur=1.55, max=10.5),
                # -- and ---: stops at 3, as past ~20% shorter Kokoro swallows sounds and quieter words get lost
                -2: dict(pitch=-2.0, dur=0.85, gain=-3.0),
                -3: dict(pitch=-3.0, dur=0.8, gain=-4.5)}
-STRETCH_MORE = {3: dict(factor=2.5, cap=0.5), 4: dict(factor=3.0, cap=0.65), 5: dict(factor=3.5, cap=0.8)}
+STRETCH_MORE = {3: dict(factor=1.75, cap=0.5), 4: dict(factor=2.0, cap=0.65), 5: dict(factor=2.5, cap=0.8)}
 MARK_LEVELS = 5         # most + or ~ a mark may stack
 DESTRESS_LEVELS = 3     # most - a mark may stack
 
 
-def word_edit(stress, stretch):
-    """a word mark's levels -> the engine's per-word edit: {'over', 'pitch', 'fall', 'gain', 'dur', 'max',
-    'sustain', 'cap'} (only what applies)"""
+# Pitch shape (^): semitones, spread evenly across the word(s), on top of everything else (stress included).
+SHAPE_MAX = 12.0
+SHAPE_SOFTEN = 3         # F0 samples (12.5 ms each) of smoothing on a shape's edges (odd)
+# Pause marks (|): seconds held after the word, 0.2 per bar, at `pause 1` (`pause` scales them, like PAUSES);
+# |seconds is exact. No random variation (`human`) on either: they are set on purpose. (The comma they're held
+# on also lengthens the word before it a little, ~0.06 s.)
+PAUSE_MARKS = {n: round(0.2 * n, 2) for n in range(1, 6)}
+PAUSE_MAX = 5.0
+
+
+def word_edit(mark):
+    """a word Mark -> the engine's per-word edit: {'over', 'pitch', 'fall', 'gain', 'dur', 'max', 'sustain',
+    'cap', 'shape', 'pause_after', 'pause_exact'} (only what applies)"""
+    stress, stretch = mark.stress, mark.stretch
     e = dict(STRESS.get(stress) or STRESS_MORE.get(stress) or {})
     if stretch:
         more = STRETCH_MORE.get(stretch)
@@ -71,7 +82,14 @@ def word_edit(stress, stretch):
         e['sustain'] = True
         if more:
             e['cap'] = more['cap']
+    if mark.shape:
+        e['shape'] = list(mark.shape)
+    if mark.pause_s:
+        e['pause_after'], e['pause_exact'] = mark.pause_s, True
+    elif mark.pause:
+        e['pause_after'] = PAUSE_MARKS[mark.pause]
     return e
+
 SUSTAIN_SMOOTH = 4.0    # F0 samples (12.5 ms): pitch smoothing inside drawn-out words
 SUSTAIN_ENERGY = 1.5    # drawn-out words keep their energy at least this far below the line's median (N units)
 STRETCH_CAP = 0.35      # seconds at speed 1: a drawn-out word stretches no single sound past this (e209)

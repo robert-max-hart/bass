@@ -50,12 +50,18 @@ def tuning(job, settings):
     t = {'level': [dsp.LEVEL_TARGET, dsp.PEAK_LIMIT], 'voiced': engine.VOICED_HZ,
          'timing': [styles.PAUSES, styles.PAUSE_HUMAN, styles.LENGTH_CAP, styles.PITCH_BRIDGE, styles.QUIET_ENERGY, styles.QUIET_EASE]}
     mt = marks_mod.parse(job.text)
-    if mt.marks:
-        t['marks'] = [styles.STRESS, styles.STRETCH, styles.STRESS_MAX, styles.STRETCH_CAP, styles.SUSTAIN_ENERGY, styles.SUSTAIN_SMOOTH]
-        more = sorted({m.stress for m in mt.marks if m.stress in styles.STRESS_MORE})
-        more_s = sorted({m.stretch for m in mt.marks if m.stretch in styles.STRETCH_MORE})
-        if more or more_s:                      # only lines using levels 3-5 depend on them
-            t['marks_more'] = [{k: styles.STRESS_MORE[k] for k in more}, {k: styles.STRETCH_MORE[k] for k in more_s}]
+    if mt.marks:                                # only the mark levels this line uses
+        stress = sorted({m.stress for m in mt.marks if m.stress})
+        stretch = sorted({m.stretch for m in mt.marks if m.stretch})
+        if stress:
+            t['stress'] = [{k: styles.STRESS.get(k) or styles.STRESS_MORE[k] for k in stress}, styles.STRESS_MAX]
+        if stretch:
+            t['stretch'] = [{k: styles.STRETCH.get(k) or styles.STRETCH_MORE[k] for k in stretch},
+                            styles.STRETCH_CAP, styles.SUSTAIN_ENERGY, styles.SUSTAIN_SMOOTH]
+        if any(m.pause for m in mt.marks):
+            t['pause_marks'] = styles.PAUSE_MARKS
+        if any(m.shape for m in mt.marks):
+            t['shape'] = styles.SHAPE_SOFTEN
     if any(styles.question_rises(settings, mt.plain)):
         t['question'] = styles.QUESTION
     if 'internal' in settings['effects']:

@@ -46,10 +46,14 @@ c1.e174  Doctor Harris {pause 2.2}: Now... Julia... close your [eyes](+~)...
 |---|---|
 | `@voices ../voices` | the folder that voice names are looked up in, relative to the script |
 | `@cast Name = voice` | which voice a speaker uses: a name in `@voices` (`julia` → `julia.pt`), a path to a `.pt`, or a Kokoro stock voice (`af_nicole`) |
-| `@cast Name = voice \| alias \| alias` | other names for the same speaker (`???` → Doctor Harris) |
 | `@cast Name = voice {direction}` | a default direction for everything this speaker says |
 | `@defaults direction` | a default direction for every line |
 | `@pronounce Julia = /ʤˈuljə/` | say this word this way in every line, unless that occurrence already has a mark (a mark holds either a stress or a respelling). Possessives ("Julia’s") aren't touched |
+
+Other names for the same speaker go after the voice, separated by bars, so lines spoken by `???` use
+Doctor Harris's voice:
+
+    @cast Doctor Harris = harris | ??? {pitch 1}
 
 **To change a voice**, replace its `.pt` file or point the `@cast` line at a new one. A rebuild then
 redoes that speaker's lines.
@@ -97,11 +101,24 @@ line's own. A later style replaces an earlier one, settings replace earlier sett
 | `[word](++)` | strong stress |
 | `[word](-)` | de-stress: lower, quieter and a little shorter |
 | `[word](--)`, `[word](---)` | stronger de-stress (three is the limit: shorter still and Kokoro starts swallowing sounds) |
-| `[word](~)`, `[word](~~)` | drawn out, very drawn out |
+| `[word](~)`, `[word](~~)` | drawn out: ×1.25, ×1.5 the word's length (`~~~` ×1.75, `~~~~` ×2, `~~~~~` ×2.5) |
 | `[word](+++)` … `(+++++)`, `(~~~)` … `(~~~~~)` | more of the same: up to five of each stack (they combine too, `(+++~~~)`). Levels 3-5 are untuned extremes that may distort; each lifts the pitch more, louder and longer, and allows a bigger lift and longer sounds than levels 1-2 |
-| `[word](+~)` | marks combine |
+| `[word](^1.5)`, `[word](^-2)` | shift the word's pitch by that many semitones, nothing else |
+| `[word](^2>-1)` | shape the pitch across the word: start 2 semitones up, glide to 1 down. Add points for more: `^0>3>0` rises in the middle and comes back. On several words (`[very carefully](^2>-1)`) the shape spans them all. It adds to the word's own melody and to any stress |
+| `[word](+~)` | marks combine; all of them do (see the pause examples below) |
 | `[Harris](/hˈɛɹɪs/)` | pronounce it this way (IPA, Kokoro/misaki symbols) |
 | `[Dr.](=Doctor)` | say different words; the text on screen stays the same. `[um](=)` makes a word silent |
+
+**Pauses** after a word use bars (`|`) in the mark:
+
+    [word](|)          a 0.2 s pause after the word
+    [word](||)         0.4 s; each bar adds 0.2 s, up to five: [word](|||||) = 1.0 s
+    [word](|0.8)       exactly 0.8 s (up to 5 s)
+    [word](++^2>0||)   strong stress, gliding from 2 semitones up to level, then a 0.4 s pause
+
+Bar pauses scale with `{pause}` and don't vary at random like punctuation pauses; `|0.8` is exact. Nothing
+shows on screen. A pause after a line's last word has no effect. The word before the pause also gets
+about 0.06 s longer, as it does before a comma.
 
 Brackets can hold several words: `[you must](+)`. **Change how a line sounds with marks only**, and leave
 the words themselves alone. If the plain text differs from the game's text, the line no longer matches

@@ -159,7 +159,7 @@ class Engine:
         """
         ps         : phoneme string (<= 510)
         word_spans : id spans of the words (for `human` and per-word edits)
-        edits      : {word_span: {'pitch': st, 'dur': x}}
+        edits      : {word_span: styles.word_edit(...) + 'group' (the words under one mark share it)}
         speed      : divides all durations       pitch : semitones, whole line
         range_     : pitch movement around the median (0 = dead flat, >1 = livelier)
         drift      : semitones of slow fall across the line
@@ -193,9 +193,14 @@ class Engine:
         # voicing and energy are switched off over it below, so the decoder itself renders the fade into the
         # silence and the next word's start. (Cutting silence into the audio afterwards chopped tails and left
         # fragments of the next word: "s-sorry", a hiccup on "yes… yes…".)
+        # A | mark sets the pause after its word(s) (after the last word, when the mark covers several).
+        marked = {max(sp[1] for sp, o2 in edits.items() if o2.get('group') == o['group']): o
+                  for o in edits.values() if o.get('pause_after')}
         for i0, j, kind in self.pause_groups(ps):
-            target = styles.PAUSES[kind] * pause
-            if human:
+            o = marked.get(i0 + 1)
+            target = (o['pause_after'] * (1 if o.get('pause_exact') else pause) if o
+                      else styles.PAUSES[kind] * pause)
+            if human and not o:                                         # marked pauses are set on purpose
                 target *= float(np.exp(rng.normal(0, styles.PAUSE_HUMAN * human)))
             have = float(dur[i0 + 1:j + 2].sum()) / 40.0                     # 40 duration frames per second
             last = i0 + len(ps[i0:j + 1].rstrip()) - 1                       # the run's last mark
@@ -254,6 +259,26 @@ class Engine:
             t = torch.linspace(0, 1, len(vi))
             corr = -(now - now.mean()) * Q['flatten'] + o['rise'] * (Q['gradual'] * t + (1 - Q['gradual']) * t ** Q['power'])
             st[vi] += corr * torch.clamp(torch.arange(len(vi)) / 6.0, max=1.0)   # eased in, no jump at the start
+        # ^ pitch shapes: semitones spread evenly over the voiced part of the word(s), so the last value lands
+        # on sound, not on an unvoiced ending (a line-final "carefully" goes quiet before its end). Added last:
+        # the smoothing above would blunt a short word's ends (+-3 came out as +-1.9 on "listen") and the question
+        # rise flattens its word first. Only the shape's own edges are softened, lightly.
+        shape = torch.zeros_like(st)
+        for o in {o['group']: o for o in edits.values() if o.get('shape')}.values():
+            spans = [sp for sp, o2 in edits.items() if o2.get('group') == o['group']]
+            lo, hi = int(starts[min(a for a, _ in spans)]), int(ends[max(b for _, b in spans) - 1])
+            vi = torch.nonzero(v[lo:hi]).view(-1)
+            if len(vi) < 2:
+                continue
+            pts = o['shape']
+            a_, b_ = lo + int(vi[0]), lo + int(vi[-1]) + 1
+            shape[lo:a_] = pts[0]; shape[b_:hi] = pts[-1]
+            shape[a_:b_] = torch.tensor(np.interp(np.linspace(0, 1, b_ - a_), np.linspace(0, 1, len(pts)), pts),
+                                        dtype=st.dtype)
+        if shape.any():
+            k = torch.ones(1, 1, styles.SHAPE_SOFTEN) / styles.SHAPE_SOFTEN
+            st += torch.nn.functional.conv1d(
+                torch.nn.functional.pad(shape.view(1, 1, -1), (styles.SHAPE_SOFTEN // 2,) * 2), k).view(-1)
         f = f * 2 ** (st / 12)
         if floor and v.any():
             lim = max(VOICED_HZ, float(f[f > VOICED_HZ].median()) * floor)
@@ -526,11 +551,11 @@ class Engine:
         tokens = self.tokenize(mt)
 
         word_edits, unplaced = {}, []
-        for mk in mt.marks:
+        for gi, mk in enumerate(mt.marks):
             hit = [t for t in tokens if t.span and t.is_word and t.span[0] < mk.end and t.span[1] > mk.start]
             if not hit:
                 unplaced.append(mt.plain[mk.start:mk.end]); continue
-            e = styles.word_edit(mk.stress, mk.stretch)
+            e = dict(styles.word_edit(mk), group=gi)     # group: the words under one mark
             for t in hit:
                 word_edits[id(t)] = e
 
